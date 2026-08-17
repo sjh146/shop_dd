@@ -1,0 +1,93 @@
+# ── shop_dd 통합 배포 compose ─────────────────────────────
+# 사용법: cp .env.example .env (실값 채움) && docker compose up -d
+# 게이트웨이는 blockchain-gateway 레포에서 빌드 (분리형 — 코드 수정 없음)
+name: shop-protocol
+
+services:
+  shop-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shop_dd}
+      POSTGRES_USER: ${POSTGRES_USER:-shop_dd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - shop_pgdata:/var/lib/postgresql/data
+    networks:
+      - shop
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shop_dd} -d ${POSTGRES_DB:-shop_dd}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway-shop:
+    build:
+      context: ../../blockchain-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8091:8091"   # dev 노출
+    env_file: .env
+    environment:
+      PORT: "8091"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set INTERNAL_API_KEY}
+      DEV_MOCK: "false"
+      RPC_URL: ${RPC_URL:-https://sepolia.base.org}
+      CHAIN_ID: ${CHAIN_ID:-84532}
+      PAYMENT_CONTRACT_ADDRESS: ${PAYMENT_CONTRACT_ADDRESS:?set}
+      USDC_TOKEN_ADDRESS: ${USDC_TOKEN_ADDRESS:?set}
+      OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY:?set}
+    networks:
+      - shop
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8091/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  shop-api:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8095:8095"   # dev 노출
+    env_file: .env
+    environment:
+      DB_HOST: shop-postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-shop_dd}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set}
+      DB_NAME: ${POSTGRES_DB:-shop_dd}
+      APP_ENV: ${APP_ENV:-dev}
+      DEV_FAKE_SIGNATURE: ${DEV_FAKE_SIGNATURE:-}
+      BLOCKCHAIN_GATEWAY_URL: http://gateway-shop:8091
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set}
+      SELLING_DB_URL: ${SELLING_DB_URL:-}
+    depends_on:
+      shop-postgres:
+        condition: service_healthy
+      gateway-shop:
+        condition: service_healthy
+    networks:
+      - shop
+
+  shop-web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - shop-api
+    networks:
+      - shop
+
+networks:
+  shop:
+
+volumes:
+  shop_pgdata:
