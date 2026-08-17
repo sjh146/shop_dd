@@ -206,8 +206,24 @@ export async function switchToBaseSepolia(): Promise<boolean> {
 }
 
 export async function signMessage(message: string, account: Address): Promise<string> {
-  const client = getWalletClient()
-  return client.signMessage({ account, message })
+  // viem 계층을 우회해 provider에 직접 personal_sign — MetaMask SDK 중계에서
+  // viem의 signMessage 응답이 유실되는 문제 회피 (nonce만 가고 verify가 안 가던 증상)
+  const provider = getWalletProvider()
+  if (!provider) {
+    throw new Error('no-wallet-provider')
+  }
+  // 90초 타임아웃: 모바일 앱 서명 대기. 무한 대기 방지 (hang 방지)
+  const timeout = new Promise<never>((_, rej) =>
+    setTimeout(() => rej(new Error('서명 요청이 시간 초과됐어요. MetaMask 앱을 확인해 주세요.')), 90_000)
+  )
+  const sig = (await Promise.race([
+    provider.request({
+      method: 'personal_sign',
+      params: [message, account]
+    }),
+    timeout
+  ])) as string
+  return sig
 }
 
 export async function getUsdcBalance(
