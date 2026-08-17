@@ -146,8 +146,12 @@ export function CheckoutPage() {
       const authRes = await verifySignature(address, signature, nonceRes.nonce)
       setToken(authRes.token)
       setStep('order')
-    } catch {
-      setError('로그인 서명에 실패했어요. MetaMask에서 서명을 확인해 주세요.')
+    } catch (e) {
+      setError(
+        e instanceof Error && e.message
+          ? e.message
+          : '로그인 서명에 실패했어요. MetaMask에서 서명을 확인해 주세요.'
+      )
     } finally {
       setBusy(false)
     }
