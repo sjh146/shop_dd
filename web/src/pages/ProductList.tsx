@@ -27,7 +27,7 @@ export function ProductList() {
   return (
     <div className="container page">
       <h1 className="page-title">상품</h1>
-      <p className="page-sub">알리익스프레스에서 소싱한 상품을 USDC로 결제할 수 있어요.</p>
+      <p className="page-sub">알리익스프레스 직배송 상품을 USDC로 결제하는 작은 직구 창고예요. 지금은 테스트넷이라 실제 결제는 없어요.</p>
 
       {loading ? (
         <div className="loading">불러오는 중…</div>
