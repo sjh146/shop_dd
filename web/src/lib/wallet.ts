@@ -1,5 +1,6 @@
-// viem 2.21.55 wallet helpers — MetaMask SDK (데스크톱 확장 + 모바일 QR) + Base Sepolia USDC flow.
-import MetaMaskSDK from '@metamask/sdk'
+// viem 2.21.55 wallet helpers — 데스크톱 확장(window.ethereum) + WalletConnect QR(모바일).
+// MetaMask SDK는 응답 중계 유실 문제(서명 후 웹 미반영)로 제거 — 표준 WalletConnect 경로 사용.
+import { EthereumProvider } from '@walletconnect/ethereum-provider'
 import {
   createWalletClient,
   createPublicClient,
@@ -7,9 +8,13 @@ import {
   http,
   type Address,
   type Chain,
-  type WalletClient,
-  type PublicClient
+  type EIP1193Provider,
+  type PublicClient,
+  type WalletClient
 } from 'viem'
+
+// WalletConnect Cloud 프로젝트 ID (https://cloud.walletconnect.com 에서 생성 — 공개용 클라이언트 ID)
+const WALLETCONNECT_PROJECT_ID = 'PENDING_USER_PROJECT_ID'
 
 declare global {
   interface Window {
@@ -75,35 +80,48 @@ const shopPaymentAbi = [
   }
 ] as const
 
-let walletClient: WalletClient | null = null
 let publicClient: PublicClient | null = null
-let sdkInstance: MetaMaskSDK | null = null
+let wcProvider: EIP1193Provider | null = null
+let wcInitPromise: Promise<EIP1193Provider | null> | null = null
+let activeProvider: EIP1193Provider | null = null
 
-// MetaMask SDK (EIP-1193 프로바이더 + QR 모달).
-// 데스크톱: 확장 프로그램 자동 감지 → 확장 주입. 모바일: QR 모달 → MetaMask 앱 deeplink.
-// (모바일 MetaMask는 window.ethereum을 주입할 수 없으므로 SDK가 QR로 연결해줌)
-function getSdkInstance(): MetaMaskSDK | null {
-  if (typeof window === 'undefined') return null
-  if (!sdkInstance) {
-    try {
-      sdkInstance = new MetaMaskSDK({
-        dappMetadata: { name: '직구창고', url: window.location.origin },
-        injectProvider: true,
-        checkInstallationImmediately: false,
-        checkInstallationOnAllCalls: false,
-        logging: { developerMode: false }
-      })
-    } catch {
-      sdkInstance = null
-    }
-  }
-  return sdkInstance
+function extensionProvider(): EIP1193Provider | null {
+  return (window.ethereum as EIP1193Provider | undefined) ?? null
 }
 
-function getWalletProvider(): Parameters<typeof custom>[0] | undefined {
-  const sdk = getSdkInstance()
-  const provider = (sdk?.getProvider() as Parameters<typeof custom>[0] | undefined) ?? window.ethereum
-  return provider as Parameters<typeof custom>[0] | undefined
+// WalletConnect 프로바이더 (모바일 QR). showQrModal로 QR 모달 자동 표시.
+async function getWcProvider(): Promise<EIP1193Provider | null> {
+  if (wcProvider) return wcProvider
+  if (!wcInitPromise) {
+    wcInitPromise = EthereumProvider.init({
+      projectId: WALLETCONNECT_PROJECT_ID,
+      showQrModal: true,
+      chains: [BASE_SEPOLIA_CHAIN_ID],
+      rpcMap: { [BASE_SEPOLIA_CHAIN_ID]: 'https://sepolia.base.org' },
+      metadata: {
+        name: '직구창고',
+        description: '알리익스프레스 직배송 상품을 USDC로 결제하는 테스트넷 직구 상점',
+        url: typeof window !== 'undefined' ? window.location.origin : '',
+        icons: []
+      }
+    })
+      .then((p) => {
+        wcProvider = p as unknown as EIP1193Provider
+        return wcProvider
+      })
+      .catch((e) => {
+        console.error('[wallet] WalletConnect init 실패 (projectId 확인):', e)
+        return null
+      })
+  }
+  return wcInitPromise
+}
+
+// 활성 프로바이더 결정: 확장 프로그램 우선, 없으면 WalletConnect(모바일 QR).
+async function resolveProvider(): Promise<EIP1193Provider | null> {
+  const ext = extensionProvider()
+  if (ext) return ext
+  return getWcProvider()
 }
 
 function getPublicClient(): PublicClient {
@@ -116,53 +134,30 @@ function getPublicClient(): PublicClient {
   return publicClient
 }
 
-function getWalletClient(): WalletClient {
-  if (!walletClient) {
-    const provider = getWalletProvider()
-    if (!provider) {
-      throw new Error('no-wallet-provider')
-    }
-    walletClient = createWalletClient({
-      chain: baseSepolia,
-      transport: custom(provider)
-    })
-  }
-  return walletClient
+function makeWalletClient(provider: EIP1193Provider): WalletClient {
+  return createWalletClient({
+    chain: baseSepolia,
+    transport: custom(provider)
+  })
 }
 
-export function hasEthereum(): boolean {
+export async function hasEthereum(): Promise<boolean> {
   if (typeof window === 'undefined') return false
-  // SDK가 있으면 확장 프로그램 없이도 모바일 QR 연결 가능
-  return Boolean(getSdkInstance() || window.ethereum)
+  // 확장 프로그램 또는 WalletConnect(모바일) 경로 가능 여부
+  if (extensionProvider()) return true
+  return Boolean(await getWcProvider())
 }
 
 export async function connect(): Promise<Address> {
-  const sdk = getSdkInstance()
-  if (sdk) {
-    try {
-      if (!sdk.isInitialized()) {
-        await sdk.init()
-      }
-      // SDK connect: 데스크톱 확장 팝업 / 모바일 QR 모달 자동 처리
-      const accounts = await sdk.connect()
-      const [address] = (accounts as Address[]) ?? []
-      if (!address) {
-        throw new Error('no-accounts')
-      }
-      return address
-    } catch (e) {
-      // SDK 연결 실패 시 확장 프로그램 폴백
-      if (!window.ethereum) {
-        throw e
-      }
-    }
+  const provider = await resolveProvider()
+  if (!provider) {
+    throw new Error('지갑 연결을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.')
   }
-  // 폴백: window.ethereum (확장 프로그램) — eth_requestAccounts로 실제 프롬프트
-  const client = createWalletClient({
-    chain: baseSepolia,
-    transport: custom(window.ethereum as Parameters<typeof custom>[0])
-  })
-  const accounts = (await client.request({ method: 'eth_requestAccounts' })) as Address[]
+  activeProvider = provider
+  // eth_requestAccounts: 확장 팝업 / WalletConnect QR 모달 표시
+  const accounts = (await provider.request({
+    method: 'eth_requestAccounts'
+  })) as Address[]
   const [address] = accounts
   if (!address) {
     throw new Error('no-accounts')
@@ -171,12 +166,16 @@ export async function connect(): Promise<Address> {
 }
 
 export async function getChainId(): Promise<number> {
-  const client = getWalletClient()
-  return client.getChainId()
+  const provider = activeProvider ?? (await resolveProvider())
+  if (!provider) throw new Error('no-wallet-provider')
+  const chainIdHex = (await provider.request({ method: 'eth_chainId' })) as string
+  return Number.parseInt(chainIdHex, 16)
 }
 
 export async function switchToBaseSepolia(): Promise<boolean> {
-  const client = getWalletClient()
+  const provider = activeProvider ?? (await resolveProvider())
+  if (!provider) throw new Error('no-wallet-provider')
+  const client = makeWalletClient(provider)
   try {
     await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
   } catch (err) {
@@ -186,15 +185,15 @@ export async function switchToBaseSepolia(): Promise<boolean> {
         await client.addChain({ chain: baseSepolia })
         await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
       } catch {
-        // 모바일 앱에서 이미 추가/전환됐을 수 있음 — 실패로 취급하지 않고 아래에서 재확인
+        // 앱에서 이미 추가/전환됐을 수 있음 — 아래에서 실제 체인 재확인
       }
     }
-    // switchChain 응답이 SDK 경유로 유실돼도 실제 전환은 됐을 수 있음
   }
-  // 실제 체인 재확인 (SDK 경유 전환 반영 대기) — MetaMask가 "전환됨"을 표시하면 여기서 잡힘
+  // 실제 체인 재확인 (전환 반영 대기) — MetaMask가 "전환됨"을 표시하면 여기서 잡힘
   for (let i = 0; i < 6; i++) {
     try {
-      if ((await client.getChainId()) === BASE_SEPOLIA_CHAIN_ID) {
+      const chainIdHex = (await provider.request({ method: 'eth_chainId' })) as string
+      if (Number.parseInt(chainIdHex, 16) === BASE_SEPOLIA_CHAIN_ID) {
         return true
       }
     } catch {
@@ -206,48 +205,22 @@ export async function switchToBaseSepolia(): Promise<boolean> {
 }
 
 export async function signMessage(message: string, account: Address): Promise<string> {
-  const sdk = getSdkInstance()
-  // 1) SDK 네이티브 로그인 흐름 (connectAndSign) — 모바일 중계에 최적화된 서명 경로
-  if (sdk) {
-    try {
-      if (!sdk.isInitialized()) {
-        await sdk.init()
-      }
-      const res = await sdk.connectAndSign({ msg: message })
-      if (Array.isArray(res)) {
-        // [address, signature] 형태
-        const sig = res[1] as string | undefined
-        if (typeof sig === 'string' && sig.startsWith('0x')) {
-          console.log('[wallet] signMessage via connectAndSign')
-          return sig
-        }
-      } else if (typeof res === 'string' && res.startsWith('0x')) {
-        console.log('[wallet] signMessage via connectAndSign (single)')
-        return res
-      }
-    } catch {
-      // fall through — provider 직접 요청으로
-    }
-  }
-
-  // 2) provider 직접 personal_sign (헥스 인코딩 — SDK 중계가 평문 메시지를 유실하는 케이스 대응)
-  const provider = getWalletProvider()
+  const provider = activeProvider ?? (await resolveProvider())
   if (!provider) {
     throw new Error('no-wallet-provider')
   }
-  const hexMessage =
-    '0x' +
-    Array.from(new TextEncoder().encode(message))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
   // 60초 타임아웃: 모바일 앱 서명 대기. 무한 대기 방지
   const timeout = new Promise<never>((_, rej) =>
     setTimeout(() => rej(new Error('서명 요청이 시간 초과됐어요. MetaMask 앱을 확인해 주세요.')), 60_000)
   )
+  // viem의 EIP1193Provider request 유니온 타입에 personal_sign이 없어 느슨하게 호출
+  const loose = provider as unknown as {
+    request(args: { method: string; params?: unknown[] | Record<string, unknown> }): Promise<unknown>
+  }
   const sig = (await Promise.race([
-    provider.request({
+    loose.request({
       method: 'personal_sign',
-      params: [hexMessage, account]
+      params: [message, account]
     }),
     timeout
   ])) as string
@@ -274,7 +247,9 @@ export async function approve(
   amountMicro: bigint,
   account: Address
 ): Promise<string> {
-  const client = getWalletClient()
+  const provider = activeProvider ?? (await resolveProvider())
+  if (!provider) throw new Error('no-wallet-provider')
+  const client = makeWalletClient(provider)
   const hash = await client.writeContract({
     chain: baseSepolia,
     address: usdcToken as Address,
@@ -292,7 +267,9 @@ export async function pay(
   amountMicro: bigint,
   account: Address
 ): Promise<string> {
-  const client = getWalletClient()
+  const provider = activeProvider ?? (await resolveProvider())
+  if (!provider) throw new Error('no-wallet-provider')
+  const client = makeWalletClient(provider)
   const hash = await client.writeContract({
     chain: baseSepolia,
     address: contractAddress as Address,
@@ -309,7 +286,9 @@ export async function faucet(
   address: Address,
   amountMicro: bigint
 ): Promise<string> {
-  const client = getWalletClient()
+  const provider = activeProvider ?? (await resolveProvider())
+  if (!provider) throw new Error('no-wallet-provider')
+  const client = makeWalletClient(provider)
   const hash = await client.writeContract({
     chain: baseSepolia,
     address: usdcToken as Address,

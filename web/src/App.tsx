@@ -15,7 +15,7 @@ export default function App() {
   const [walletNotice, setWalletNotice] = useState<string | null>(null)
 
   const handleConnect = async () => {
-    if (!hasEthereum()) {
+    if (!(await hasEthereum())) {
       setWalletNotice(
         '지갑 연결하려면 MetaMask가 필요해요. 데스크톱은 확장 프로그램(metamask.io/download), ' +
           '모바일은 MetaMask 앱으로 이 페이지를 열어주세요. 설치 후 새로고침하면 QR 연결이 뜹니다.'
