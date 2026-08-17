@@ -65,6 +65,7 @@ func main() {
 		{
 			protected.POST("/orders", handlers.CreateOrder(db))
 			protected.POST("/orders/:id/verify", handlers.VerifyOrder(db))
+			protected.POST("/orders/:id/cancel", handlers.CancelOrder(db))
 			protected.GET("/orders", handlers.GetOrders(db))
 			protected.GET("/orders/:id", handlers.GetOrder(db))
 		}

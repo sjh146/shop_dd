@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getOrder, type Order } from '../lib/api'
+import { getOrder, cancelOrder, type Order } from '../lib/api'
 import { formatKRW } from '../components/ProductCard'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,6 +24,23 @@ export function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelMsg, setCancelMsg] = useState<string | null>(null)
+
+  async function handleCancel() {
+    if (!order) return
+    if (!window.confirm('주문을 취소할까요? 예약된 재고가 다시 풀려요.')) return
+    setCancelling(true)
+    setCancelMsg(null)
+    try {
+      const res = await cancelOrder(order.id)
+      setOrder(res.order)
+    } catch (e) {
+      setCancelMsg(e instanceof Error ? e.message : '취소에 실패했어요.')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -76,6 +93,21 @@ export function OrderDetailPage() {
           <span className={`status-badge ${STATUS_CLASS[order.status] ?? 'status-badge--pending'}`}>
             {STATUS_LABELS[order.status] ?? order.status}
           </span>
+          {(order.status === 'pending' || order.status === 'registered') && (
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={handleCancel}
+                disabled={cancelling}
+              >
+                {cancelling ? '취소 중…' : '주문 취소'}
+              </button>
+              {cancelMsg ? (
+                <p style={{ color: 'var(--danger, #a33)', fontSize: 13, marginTop: 8 }}>{cancelMsg}</p>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="order-detail__section">

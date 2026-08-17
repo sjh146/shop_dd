@@ -67,6 +67,10 @@ func Run(shopDB *sql.DB) {
 		defer ticker.Stop()
 		for range ticker.C {
 			syncOnce(shopDB)
+			// 미결제 주문 만료 + 재고 복원 (Strix 권고 2 — 15분)
+			if _, err := ExpirePendingOrders(shopDB, 15*time.Minute); err != nil {
+				log.Printf("[sync] expire pending orders failed: %v", err)
+			}
 		}
 	}()
 }

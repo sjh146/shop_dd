@@ -163,6 +163,12 @@ export function verifyOrder(id: number): Promise<VerifyOrderResponse> {
   })
 }
 
+export function cancelOrder(id: number): Promise<{ order: Order }> {
+  return request<{ order: Order }>(`/api/orders/${id}/cancel`, {
+    method: 'POST'
+  })
+}
+
 export function getOrders(): Promise<{ orders: Order[] }> {
   return request<{ orders: Order[] }>('/api/orders')
 }

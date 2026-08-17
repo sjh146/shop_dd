@@ -801,3 +801,24 @@ img {
   border-radius: 2px;
   letter-spacing: 0.02em;
 }
+
+/* 주문 취소 버튼 — 차분한 빨강 테두리 */
+.btn-cancel {
+  background: transparent;
+  border: 1px solid #b04a3a;
+  color: #b04a3a;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-family: inherit;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-cancel:hover {
+  background: #b04a3a;
+  color: #fff;
+}
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
