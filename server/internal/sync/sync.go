@@ -20,6 +20,20 @@ import (
 
 const syncInterval = 5 * time.Minute
 
+// sanitizeExternalURL allows only http/https absolute URLs, dropping
+// javascript:, data:, and other dangerous or relative schemes.
+func sanitizeExternalURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	lower := strings.ToLower(raw)
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		return ""
+	}
+	return raw
+}
+
 // KRW 변환: int(float(usd)*1350) → round(/100)*100
 func usdToKRW(usdStr string) (int, bool) {
 	usdStr = strings.TrimSpace(usdStr)
@@ -102,6 +116,8 @@ func syncOnce(shopDB *sql.DB) {
 			log.Printf("[sync] scan failed: %v", err)
 			continue
 		}
+
+		sourceURL = sanitizeExternalURL(sourceURL)
 
 		saleKRW, saleOK := usdToKRW(salePrice)
 		origKRW, origOK := usdToKRW(origPrice)

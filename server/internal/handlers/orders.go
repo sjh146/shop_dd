@@ -224,16 +224,30 @@ func VerifyOrder(db *sql.DB) gin.HandlerFunc {
 				c.JSON(http.StatusOK, gin.H{"order": order, "verifyError": "on-chain amount or payer does not match the recorded order"})
 				return
 			}
-			_, err = db.Exec(
-				"UPDATE orders SET status = 'paid', tx_hash = $1, updated_at = NOW() WHERE id = $2",
+			// CWE-754: 상태 전이 가드 — 이미 paid인 주문은 재검증으로 덮어쓰지 않음 (멱등)
+			res, err := db.Exec(
+				"UPDATE orders SET status = 'paid', tx_hash = $1, updated_at = NOW() WHERE id = $2 AND status <> 'paid'",
 				txHash, order.ID,
 			)
 			if err != nil {
 				respondDBError(c, err)
 				return
 			}
-			order.Status = "paid"
-			order.TxHash = txHash
+			if n, _ := res.RowsAffected(); n > 0 {
+				order.Status = "paid"
+				order.TxHash = txHash
+			} else {
+				// 이미 paid — DB의 기존 상태를 재조회해 응답 오염 방지
+				_ = db.QueryRow(`
+					SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
+					       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+					FROM orders WHERE id = $1
+				`, order.ID).Scan(
+					&order.ID, &order.UserID, &order.WalletAddress, &order.Status,
+					&order.TotalKRW, &order.TotalUsdcMicro, &order.GatewayOrderID, &order.TxHash,
+					&order.CreatedAt, &order.UpdatedAt,
+				)
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"order": order})

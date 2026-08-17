@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getProduct, type Product } from '../lib/api'
 import { useCart } from '../lib/cart'
 import { formatKRW, discountPct } from '../components/ProductCard'
+import { isSafeExternalUrl } from '../lib/safeUrl'
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>()
@@ -149,7 +150,7 @@ export function ProductDetail() {
             </button>
           </div>
 
-          {product.sourceUrl ? (
+          {isSafeExternalUrl(product.sourceUrl) ? (
             <a
               className="btn btn--ghost btn--block"
               href={product.sourceUrl}

@@ -312,11 +312,10 @@ func TestCreateOrderZeroPriceFreeOrder(t *testing.T) {
 	t.Log("OK: listed product with NULL price produced a zero-amount (free) order")
 }
 
-// TestVerifyOrderRedisplaysPaid proves VerifyOrder performs no state transition
-// guard / idempotency check: a caller may re-invoke verification on an order
-// already marked paid, and the handler will re-update status/tx_hash without a
-// WHERE status guard (no single-flight / atomic transition).
-func TestVerifyOrderReVerifiesPaid(t *testing.T) {
+// TestVerifyOrderReVerifyPaidIdempotent — CWE-754 회귀 테스트:
+// 이미 paid인 주문을 재검증해도 상태 전이 가드(WHERE status <> 'paid')로
+// tx_hash가 덮어써지지 않고, 응답에도 기존 DB 상태가 그대로 반환된다.
+func TestVerifyOrderReVerifyPaidIdempotent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -335,7 +334,7 @@ func TestVerifyOrderReVerifiesPaid(t *testing.T) {
 	defer db.Close()
 
 	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
-	// Order already paid (status=paid) — no status guard prevents re-verification
+	// Order already paid (status=paid, tx_hash=0xold)
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
 		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
@@ -344,9 +343,19 @@ func TestVerifyOrderReVerifiesPaid(t *testing.T) {
 		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "paid",
 		TotalKRW: 13500, TotalUsdcMicro: 10_000_000, TxHash: "0xold",
 	}, now))
+	// 상태 전이 가드: 이미 paid → 0행 갱신
 	mock.ExpectExec(`
-		UPDATE orders SET status = 'paid', tx_hash = $1, updated_at = NOW() WHERE id = $2
-	`).WithArgs("0xdeadbeef", 5).WillReturnResult(sqlmock.NewResult(0, 1))
+		UPDATE orders SET status = 'paid', tx_hash = $1, updated_at = NOW() WHERE id = $2 AND status <> 'paid'
+	`).WithArgs("0xdeadbeef", 5).WillReturnResult(sqlmock.NewResult(0, 0))
+	// 응답 오염 방지용 DB 재조회 — 기존 상태 유지
+	mock.ExpectQuery(`
+		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		FROM orders WHERE id = $1
+	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
+		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "paid",
+		TotalKRW: 13500, TotalUsdcMicro: 10_000_000, TxHash: "0xold",
+	}, now))
 
 	router := gin.New()
 	router.POST("/api/orders/:id/verify", func(c *gin.Context) {
@@ -360,8 +369,20 @@ func TestVerifyOrderReVerifiesPaid(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body=%s", w.Code, w.Body.String())
 	}
+
+	// 응답에 기존 tx_hash(0xold)가 유지되어야 함 — 재검증 덮어쓰기 금지
+	var resp struct {
+		Order models.Order `json:"order"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v; body=%s", err, w.Body.String())
+	}
+	if resp.Order.TxHash != "0xold" {
+		t.Errorf("tx_hash = %q, want 0xold (paid order must not be overwritten by re-verify)", resp.Order.TxHash)
+	}
+
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet sqlmock expectations: %v", err)
 	}
-	t.Log("OK: an already-paid order was re-verified and its tx_hash re-written (no status/idempotency guard)")
+	t.Log("OK: re-verify on paid order is idempotent — tx_hash preserved")
 }

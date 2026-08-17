@@ -40,6 +40,7 @@ export function ProductCard({ product }: { product: Product }) {
           이미지 준비 중
         </div>
         {pct !== null ? <span className="discount-tag">-{pct}%</span> : null}
+        {product.stock <= 0 ? <span className="soldout-tag">품절</span> : null}
       </div>
       <div className="product-card__body">
         <h3 className="product-card__title">{product.title}</h3>
