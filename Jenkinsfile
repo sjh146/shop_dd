@@ -6,7 +6,6 @@ pipeline {
     options {
         disableConcurrentBuilds()
         skipDefaultCheckout()
-        timestamps()
     }
 
     environment {
