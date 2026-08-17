@@ -46,15 +46,19 @@ func TestCreateOrder(t *testing.T) {
 
 	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
 
-	// ① Product lookup for item productId=1.
-	productRows := sqlmock.NewRows([]string{"title", "sale_price_krw", "status", "stock"}).
-		AddRow("Test Product", 13500, "listed", 10)
-	mock.ExpectQuery(`
-		SELECT title, COALESCE(sale_price_krw, 0), status, COALESCE(stock, 1)
-		FROM products WHERE id = $1
-	`).WithArgs(1).WillReturnRows(productRows)
+	// ① 트랜잭션 시작
+	mock.ExpectBegin()
 
-	// ② Order insert. totalKRW = 13500*2 = 27000, totalUsdcMicro = 20_000_000.
+	// ② 재고 원자 차감 (UPDATE ... RETURNING) — totalKRW = 13500*2 = 27000
+	productRows := sqlmock.NewRows([]string{"title", "sale_price_krw"}).
+		AddRow("Test Product", 13500)
+	mock.ExpectQuery(`
+		UPDATE products SET stock = stock - $1, updated_at = NOW()
+		WHERE id = $2 AND status = 'listed' AND stock >= $1
+		RETURNING title, COALESCE(sale_price_krw, 0)
+	`).WithArgs(2, 1).WillReturnRows(productRows)
+
+	// ③ Order insert. totalKRW = 13500*2 = 27000, totalUsdcMicro = 20_000_000.
 	orderRows := sqlmock.NewRows([]string{
 		"id", "user_id", "wallet_address", "status", "total_krw", "total_usdc_micro",
 		"gateway_order_id", "tx_hash", "created_at", "updated_at",
@@ -67,13 +71,15 @@ func TestCreateOrder(t *testing.T) {
 		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
 	`).WithArgs(7, "0xabc...", 27000, int64(20_000_000)).WillReturnRows(orderRows)
 
-	// ③ order_items insert.
+	// ④ order_items insert (같은 트랜잭션).
 	mock.ExpectExec(`
 		INSERT INTO order_items (order_id, product_id, title, price_krw, qty)
 		VALUES ($1, $2, $3, $4, $5)
 	`).WithArgs(42, 1, "Test Product", 13500, 2).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	// ④ Gateway register success → UPDATE orders to registered.
+	mock.ExpectCommit()
+
+	// ⑤ Gateway register success → UPDATE orders to registered.
 	mock.ExpectExec(`
 		UPDATE orders SET status = 'registered', gateway_order_id = $1, updated_at = NOW()
 		WHERE id = $2
@@ -148,12 +154,15 @@ func TestCreateOrderGatewayDown(t *testing.T) {
 
 	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
 
-	productRows := sqlmock.NewRows([]string{"title", "sale_price_krw", "status", "stock"}).
-		AddRow("Test Product", 13500, "listed", 10)
+	mock.ExpectBegin()
+
+	productRows := sqlmock.NewRows([]string{"title", "sale_price_krw"}).
+		AddRow("Test Product", 13500)
 	mock.ExpectQuery(`
-		SELECT title, COALESCE(sale_price_krw, 0), status, COALESCE(stock, 1)
-		FROM products WHERE id = $1
-	`).WithArgs(1).WillReturnRows(productRows)
+		UPDATE products SET stock = stock - $1, updated_at = NOW()
+		WHERE id = $2 AND status = 'listed' AND stock >= $1
+		RETURNING title, COALESCE(sale_price_krw, 0)
+	`).WithArgs(1, 1).WillReturnRows(productRows)
 
 	orderRows := sqlmock.NewRows([]string{
 		"id", "user_id", "wallet_address", "status", "total_krw", "total_usdc_micro",
@@ -171,6 +180,8 @@ func TestCreateOrderGatewayDown(t *testing.T) {
 		INSERT INTO order_items (order_id, product_id, title, price_krw, qty)
 		VALUES ($1, $2, $3, $4, $5)
 	`).WithArgs(43, 1, "Test Product", 13500, 1).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	mock.ExpectCommit()
 
 	// No UPDATE expected — gateway failed, order stays pending.
 

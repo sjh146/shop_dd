@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 
 	"shop-dd/internal/models"
@@ -34,50 +35,80 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// ① items 검증 + total_krw 계산
+		// ① items 집계 — 중복 productId 합산 (오버셀 방지, CWE-639)
 		type lineItem struct {
 			productID int
 			title     string
 			priceKRW  int
 			qty       int
 		}
-		items := make([]lineItem, 0, len(req.Items))
-		totalKRW := 0
+		qtyByProduct := make(map[int]int)
 		for _, it := range req.Items {
+			if it.ProductID <= 0 || it.Qty <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item"})
+				return
+			}
+			qtyByProduct[it.ProductID] += it.Qty
+		}
+		productIDs := make([]int, 0, len(qtyByProduct))
+		for pid := range qtyByProduct {
+			productIDs = append(productIDs, pid)
+		}
+		sort.Ints(productIDs)
+
+		// ② 단일 트랜잭션: 재고 원자 차감 + order + order_items (부분 실패 시 전체 롤백)
+		items := make([]lineItem, 0, len(productIDs))
+		totalKRW := 0
+		tx, err := db.Begin()
+		if err != nil {
+			respondDBError(c, err)
+			return
+		}
+		defer tx.Rollback() // 커밋 후 no-op
+
+		for _, pid := range productIDs {
+			qty := qtyByProduct[pid]
 			var title string
 			var priceKRW int
-			var status string
-			var stock int
-			err := db.QueryRow(`
-				SELECT title, COALESCE(sale_price_krw, 0), status, COALESCE(stock, 1)
-				FROM products WHERE id = $1
-			`, it.ProductID).Scan(&title, &priceKRW, &status, &stock)
+			err = tx.QueryRow(`
+				UPDATE products SET stock = stock - $1, updated_at = NOW()
+				WHERE id = $2 AND status = 'listed' AND stock >= $1
+				RETURNING title, COALESCE(sale_price_krw, 0)
+			`, qty, pid).Scan(&title, &priceKRW)
 			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("product %d not found", it.ProductID)})
+				// 원인 구분: 미존재/비listed vs 재고부족
+				var st string
+				var stk int
+				serr := tx.QueryRow(`SELECT status, COALESCE(stock, 0) FROM products WHERE id = $1`, pid).Scan(&st, &stk)
+				if serr == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("product %d not found", pid)})
+					return
+				}
+				if serr != nil {
+					respondDBError(c, serr)
+					return
+				}
+				if st != "listed" {
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("product %d is not listed", pid)})
+					return
+				}
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("product %d has insufficient stock", pid)})
 				return
 			}
 			if err != nil {
 				respondDBError(c, err)
 				return
 			}
-			if status != "listed" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("product %d is not listed", it.ProductID)})
-				return
-			}
-			if stock < it.Qty {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("product %d has insufficient stock", it.ProductID)})
-				return
-			}
-			items = append(items, lineItem{productID: it.ProductID, title: title, priceKRW: priceKRW, qty: it.Qty})
-			totalKRW += priceKRW * it.Qty
+			items = append(items, lineItem{productID: pid, title: title, priceKRW: priceKRW, qty: qty})
+			totalKRW += priceKRW * qty
 		}
 
-		// ② KRW → USDC (마이크로)
+		// ③ KRW → USDC (마이크로)
 		totalUsdcMicro := krwToUsdcMicro(totalKRW)
 
-		// ③ order 생성 (pending) + order_items
+		// ④ order 생성 (pending) + order_items — 같은 트랜잭션
 		var order models.Order
-		err := db.QueryRow(`
+		err = tx.QueryRow(`
 			INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro)
 			VALUES ($1, $2, 'pending', $3, $4)
 			RETURNING id, user_id, wallet_address, status, total_krw, total_usdc_micro,
@@ -93,7 +124,7 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 		}
 
 		for _, it := range items {
-			_, err := db.Exec(`
+			_, err := tx.Exec(`
 				INSERT INTO order_items (order_id, product_id, title, price_krw, qty)
 				VALUES ($1, $2, $3, $4, $5)
 			`, order.ID, it.productID, it.title, it.priceKRW, it.qty)
@@ -103,7 +134,12 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-		// ④ gateway register (reference_id = order id string)
+		if err := tx.Commit(); err != nil {
+			respondDBError(c, err)
+			return
+		}
+
+		// ⑤ gateway register (reference_id = order id string)
 		//    실패해도 pending 유지 (no-downtime 원칙)
 		gatewayOrderID := ""
 		if gwResult, gwErr := registerWithGateway(strconv.Itoa(order.ID), wallet, totalUsdcMicro); gwErr == nil {

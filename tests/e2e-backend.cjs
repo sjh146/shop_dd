@@ -246,10 +246,12 @@ async function main() {
   ok("nonce", nonce);
   ok("message", message);
 
-  // 2b. POST /api/auth/verify with dev fake signature "0xdev"
+  // 2b. POST /api/auth/verify — 실제 EIP-191 개인 서명 (dev 우회 제거, CWE-287)
+  const signature = await payer.signMessage({ message });
+  ok("signed message", `${signature.slice(0, 12)}...${signature.slice(-8)}`);
   const verifyRes = await backendPost(`${BACKEND_URL}/api/auth/verify`, {
     walletAddress: payerAddress,
-    signature: "0xdev",
+    signature,
     nonce,
   });
   ok("verify HTTP status", verifyRes.status);

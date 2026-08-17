@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -22,10 +21,6 @@ import (
 const (
 	nonceTTL        = 5 * time.Minute
 	loginMessageFmt = "shop_dd login (chain %d)\nnonce: %s"
-	devWalletDomain = "shop_dd.dev" // dev-mock 서명 도메인 (프로덕션 금지)
-	// devLocalSignatureBypassEnabled — 로컬 개발 전용 플래그. 배포 빌드에서는 false로
-	// 하드코딩되어 절대 우회가 활성화되지 않는다 (APP_ENV=dev + 이 플래그 동시 필요).
-	devLocalSignatureBypassEnabled = true
 )
 
 // personalSignHash — EIP-191 개인 서명 메시지 해시
@@ -180,15 +175,13 @@ func WalletVerify(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// ② 서명 검증 (dev-mock: "0xdev" 시그니처 — APP_ENV=dev + DEV_FAKE_SIGNATURE 일치)
-		if !devSignatureOK(wallet, req.Signature) {
-			chainID := envInt("CHAIN_ID", 84532)
-			msg := []byte(sprintf(loginMessageFmt, chainID, req.Nonce))
-			recovered, err := recoverAddress(msg, req.Signature)
-			if err != nil || !strings.EqualFold(recovered, wallet) {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
-				return
-			}
+		// ② 서명 검증 — 항상 실제 EIP-191 개인 서명 검증 (dev 우회 경로 없음, CWE-287)
+		chainID := envInt("CHAIN_ID", 84532)
+		msg := []byte(sprintf(loginMessageFmt, chainID, req.Nonce))
+		recovered, err := recoverAddress(msg, req.Signature)
+		if err != nil || !strings.EqualFold(recovered, wallet) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
+			return
 		}
 
 		// ③ 사용자 조회/생성 (지갑 전용 계정 프로비저닝)
@@ -231,22 +224,6 @@ func recoverAddress(message []byte, signature string) (string, error) {
 		return "", err
 	}
 	return crypto.PubkeyToAddress(*pub).Hex(), nil
-}
-
-// devSignatureOK — 로컬 개발 전용 우회 (배포 환경에서는 절대 활성화되지 않음 — fail-closed).
-// 조건: APP_ENV가 정확히 "dev" + 로컬 컴파일 플래그 + env(DEV_FAKE_SIGNATURE)와 일치하는 시그니처.
-func devSignatureOK(wallet, signature string) bool {
-	if os.Getenv("APP_ENV") != "dev" {
-		return false
-	}
-	if !devLocalSignatureBypassEnabled {
-		return false
-	}
-	expected := os.Getenv("DEV_FAKE_SIGNATURE")
-	if expected == "" || !strings.EqualFold(signature, expected) {
-		return false
-	}
-	return true
 }
 
 // getOrCreateWalletUser — 지갑 전용 사용자 자동 프로비저닝.

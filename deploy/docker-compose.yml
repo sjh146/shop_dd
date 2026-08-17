@@ -61,8 +61,6 @@ services:
       DB_USER: ${POSTGRES_USER:-shop_dd}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?set}
       DB_NAME: ${POSTGRES_DB:-shop_dd}
-      APP_ENV: ${APP_ENV:-dev}
-      DEV_FAKE_SIGNATURE: ${DEV_FAKE_SIGNATURE:-}
       BLOCKCHAIN_GATEWAY_URL: http://gateway-shop:8091
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set}
       SELLING_DB_URL: ${SELLING_DB_URL:-}

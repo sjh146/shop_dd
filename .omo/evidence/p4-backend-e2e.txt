@@ -1,7 +1,7 @@
 ================================================================================
 P4 — Backend Integration E2E Evidence (shop_dd :8095 + gateway :8091 + Base Sepolia)
 ================================================================================
-Date:            2026-08-17T12:52:44.811Z
+Date:            2026-08-17T14:07:42.923Z
 Backend:         http://localhost:8095
 Gateway:         http://localhost:8091
 RPC:             https://sepolia.base.org
@@ -15,7 +15,7 @@ Flow: wallet auth → product list → order create → on-chain pay → verify
 
 ── Step 2: Wallet auth ───────────────────────────────────────────────
   nonce HTTP:     200
-  nonce:          9d9277c4762862bc1ab50a551ed4e1701796299bba30423e2c863c46ead4d4da
+  nonce:          ee7a3a4c8ca6d383724b11d616796ae247b73e9ff0941aa9a9b404c3851ad99c
   verify HTTP:    200
   JWT token:      eyJhbGciOiJIUzI1NiIs... (353 chars)
   auth wallet:    0x889300ad92480e25ae275b990823a37907ce7304
@@ -23,37 +23,37 @@ Flow: wallet auth → product list → order create → on-chain pay → verify
 
 ── Step 3: Product list ──────────────────────────────────────────────
   products HTTP:  200
-  listed count:   19
-  first product:  id=20 title="P4 Sync Listed Product" salePriceKrw=16700
+  listed count:   1
+  first product:  id=4 title="Toocki 블루투스 5.3 무선 이어폰 (터치 컨트롤)" salePriceKrw=2800
 
 ── Step 4: Order creation ────────────────────────────────────────────
   order HTTP:     201
-  order_id:       1
-  amount_usdc_micro: 12000000
-  gateway_order_id:  90743482286830539503240959006302832933333810038750515972785732718729991261126
+  order_id:       2
+  amount_usdc_micro: 2000000
+  gateway_order_id:  78469846343542442363028680824980501212021332975324075417961003849793346933925
   contract_address:  0x7fD9208e601c69639F6875EC24717e8476A2cCb1
   usdc_token:        0xe0661BAff428a1d57cb717E5Ce15Deca4F847E90
 
 ── Step 5: On-chain payment ──────────────────────────────────────────
-  payer USDC (before): 15000000 (15 mUSDC)
+  payer USDC (before): 3000000 (3 mUSDC)
   faucet_tx:      n/a (skipped)
-  approve_tx:     0x8aab67cb26d5a52ccddf1293e1b93f3ffb84c4fcf2fa5682706f08b9306bddb2
-  on-chain orderAmount: 12000000
+  approve_tx:     0x5b450967d4bd849ec608f3239af15a5be02ebc5e9b9e2f8eb1269d80fb097b3f
+  on-chain orderAmount: 2000000
   processedOrderIds (before): false
-  pay_tx:         0x17cf89284114ab896fd07677e7094055f99de55216e93e6e9b4d7fa9200ea8dd
+  pay_tx:         0xe6f6e7759d4e5164a467ab56dcb4054ccfecfeb262344d1683e09678d90e1adf
   processedOrderIds (after):  true
 
 ── Step 6: Verify ────────────────────────────────────────────────────
   verify HTTP:    200
   order status:   paid
-  order txHash:   0x17cf89284114ab896fd07677e7094055f99de55216e93e6e9b4d7fa9200ea8dd
-  order gatewayOrderId: 90743482286830539503240959006302832933333810038750515972785732718729991261126
+  order txHash:   0xe6f6e7759d4e5164a467ab56dcb4054ccfecfeb262344d1683e09678d90e1adf
+  order gatewayOrderId: 78469846343542442363028680824980501212021332975324075417961003849793346933925
 
 ── Step 7: Balance checks ────────────────────────────────────────────
-  payer USDC (after):  3000000 (3 mUSDC)
+  payer USDC (after):  1000000 (1 mUSDC)
   ShopPayment USDC:    0 (0 mUSDC)
-  Treasury USDC:       17000000 (17 mUSDC)
+  Treasury USDC:       19000000 (19 mUSDC)
 
 ── Result ────────────────────────────────────────────────────────────
-  E2E BACKEND FLOW: PASS (order status=paid, tx_hash=0x17cf89284114ab896fd07677e7094055f99de55216e93e6e9b4d7fa9200ea8dd)
+  E2E BACKEND FLOW: PASS (order status=paid, tx_hash=0xe6f6e7759d4e5164a467ab56dcb4054ccfecfeb262344d1683e09678d90e1adf)
 ================================================================================
