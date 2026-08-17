@@ -83,7 +83,7 @@ export function CheckoutPage() {
     setBusy(true)
     try {
       if (!hasEthereum()) {
-        setError('MetaMask 지갑이 필요해요. 브라우저에 MetaMask를 설치해 주세요.')
+        setError('MetaMask 지갑이 필요해요. 데스크톱은 확장 프로그램, 모바일은 MetaMask 앱으로 이 페이지를 열어주세요.')
         return
       }
       const addr = await connect()

@@ -17,8 +17,8 @@ export default function App() {
   const handleConnect = async () => {
     if (!hasEthereum()) {
       setWalletNotice(
-        '지갑 연결하려면 브라우저에 MetaMask 확장 프로그램이 필요해요. ' +
-          'https://metamask.io/download/ 에서 설치한 뒤 이 페이지를 새로고침해주세요.'
+        '지갑 연결하려면 MetaMask가 필요해요. 데스크톱은 확장 프로그램(metamask.io/download), ' +
+          '모바일은 MetaMask 앱으로 이 페이지를 열어주세요. 설치 후 새로고침하면 QR 연결이 뜹니다.'
       )
       return
     }

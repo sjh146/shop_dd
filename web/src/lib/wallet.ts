@@ -1,4 +1,5 @@
-// viem 2.21.55 wallet helpers — MetaMask + Base Sepolia USDC flow.
+// viem 2.21.55 wallet helpers — MetaMask SDK (데스크톱 확장 + 모바일 QR) + Base Sepolia USDC flow.
+import MetaMaskSDK, { type SDKProvider } from '@metamask/sdk'
 import {
   createWalletClient,
   createPublicClient,
@@ -76,6 +77,27 @@ const shopPaymentAbi = [
 
 let walletClient: WalletClient | null = null
 let publicClient: PublicClient | null = null
+let sdkProvider: SDKProvider | null = null
+
+// MetaMask SDK 프로바이더 (EIP-1193).
+// 데스크톱: 확장 프로그램 자동 감지 → 확장 주입. 모바일: QR 모달 → 모바일 앱 deeplink.
+// (모바일 MetaMask는 window.ethereum을 주입할 수 없으므로 SDK가 QR로 연결해줌)
+function getSdkProvider(): SDKProvider | null {
+  if (typeof window === 'undefined') return null
+  if (!sdkProvider) {
+    try {
+      const sdk = new MetaMaskSDK({
+        dappMetadata: { name: '직구창고', url: window.location.origin },
+        checkInstallationImmediately: false,
+        logging: { developerMode: false }
+      })
+      sdkProvider = sdk.getProvider() ?? null
+    } catch {
+      sdkProvider = null
+    }
+  }
+  return sdkProvider
+}
 
 function getPublicClient(): PublicClient {
   if (!publicClient) {
@@ -89,16 +111,24 @@ function getPublicClient(): PublicClient {
 
 function getWalletClient(): WalletClient {
   if (!walletClient) {
+    const provider =
+      (getSdkProvider() as Parameters<typeof custom>[0] | null) ??
+      (window.ethereum as Parameters<typeof custom>[0] | undefined)
+    if (!provider) {
+      throw new Error('no-wallet-provider')
+    }
     walletClient = createWalletClient({
       chain: baseSepolia,
-      transport: custom(window.ethereum as Parameters<typeof custom>[0])
+      transport: custom(provider)
     })
   }
   return walletClient
 }
 
 export function hasEthereum(): boolean {
-  return typeof window !== 'undefined' && Boolean(window.ethereum)
+  if (typeof window === 'undefined') return false
+  // SDK가 있으면 모바일 QR 연결까지 가능 — 확장 프로그램 없이도 지갑 연결 가능
+  return Boolean(getSdkProvider() || window.ethereum)
 }
 
 export async function getChainId(): Promise<number> {
