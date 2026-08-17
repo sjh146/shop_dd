@@ -175,20 +175,34 @@ export async function getChainId(): Promise<number> {
   return client.getChainId()
 }
 
-export async function switchToBaseSepolia(): Promise<void> {
+export async function switchToBaseSepolia(): Promise<boolean> {
   const client = getWalletClient()
   try {
     await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
   } catch (err) {
-    // If the chain is not added to the wallet, add it.
     const e = err as { code?: number }
     if (e && e.code === 4902) {
-      await client.addChain({ chain: baseSepolia })
-      await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
-    } else {
-      throw err
+      try {
+        await client.addChain({ chain: baseSepolia })
+        await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
+      } catch {
+        // 모바일 앱에서 이미 추가/전환됐을 수 있음 — 실패로 취급하지 않고 아래에서 재확인
+      }
     }
+    // switchChain 응답이 SDK 경유로 유실돼도 실제 전환은 됐을 수 있음
   }
+  // 실제 체인 재확인 (SDK 경유 전환 반영 대기) — MetaMask가 "전환됨"을 표시하면 여기서 잡힘
+  for (let i = 0; i < 6; i++) {
+    try {
+      if ((await client.getChainId()) === BASE_SEPOLIA_CHAIN_ID) {
+        return true
+      }
+    } catch {
+      // 일시적 오류 — 재시도
+    }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return false
 }
 
 export async function signMessage(message: string, account: Address): Promise<string> {

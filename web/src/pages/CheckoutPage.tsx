@@ -107,11 +107,30 @@ export function CheckoutPage() {
     setError(null)
     setBusy(true)
     try {
-      await switchToBaseSepolia()
-      setWrongNetwork(false)
-      setStep('auth')
-    } catch {
-      setError('네트워크 전환에 실패했어요. MetaMask에서 Base Sepolia를 선택해 주세요.')
+      // 내성적 전환: MetaMask 앱에서 승인/전환됐으면 여기서 실제 체인을 확인해 넘어감
+      const ok = await switchToBaseSepolia()
+      if (ok) {
+        setWrongNetwork(false)
+        setStep('auth')
+      } else {
+        setError('MetaMask 앱에서 Base Sepolia로 전환됐다면, 아래 [전환 완료 확인] 버튼을 눌러주세요.')
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRecheckNetwork = async () => {
+    setError(null)
+    setBusy(true)
+    try {
+      const chainId = await getChainId().catch(() => 0)
+      if (chainId === BASE_SEPOLIA_CHAIN_ID) {
+        setWrongNetwork(false)
+        setStep('auth')
+      } else {
+        setError('아직 Base Sepolia가 아니에요. MetaMask 앱에서 네트워크를 Base Sepolia로 바꿔주세요.')
+      }
     } finally {
       setBusy(false)
     }
@@ -284,6 +303,14 @@ export function CheckoutPage() {
                 </div>
                 <button className="btn btn--secondary" onClick={handleSwitchNetwork} disabled={busy}>
                   Base Sepolia로 전환
+                </button>
+                <button
+                  className="btn btn--secondary"
+                  onClick={handleRecheckNetwork}
+                  disabled={busy}
+                  style={{ marginLeft: 8 }}
+                >
+                  전환 완료 확인
                 </button>
               </div>
             ) : null}
