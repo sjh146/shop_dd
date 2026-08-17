@@ -1,0 +1,26 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# node
+node_modules/
+dist/
+coverage/
+
+# go
+server/bin/
+*.test
+
+# hardhat / artifacts
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+
+# misc
+.DS_Store
+*.log
+/tmp/
+.omo/run-continuation/
