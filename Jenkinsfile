@@ -34,9 +34,15 @@ pipeline {
             }
         }
 
-        // P2+: contracts (hardhat), web (vite build) 스테이지 추가
+        // P4: frontend_ci — web (vite build) in node:22-alpine (Dockerfile.ci)
+        stage('frontend_ci') {
+            steps {
+                sh 'docker build -f web/Dockerfile.ci -t shop-web-ci . && docker run --rm shop-web-ci'
+            }
+        }
+
+        // P2+: contracts (hardhat), compose_smoke 스테이지 추가
         // stage('contracts_test') { sh 'docker compose run --rm --build test-contracts' }
-        // stage('frontend_ci')   { sh 'docker compose run --rm --build test-front' }
         // stage('compose_smoke') { sh 'docker compose config -q' }
     }
 

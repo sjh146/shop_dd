@@ -1,0 +1,68 @@
+================================================================================
+P5 — Frontend (React/Vite) Evidence (shop_dd web :5173 + backend :8095)
+================================================================================
+Date:            2026-08-17
+Frontend:        http://localhost:5173 (vite dev, proxy /api → http://localhost:8095)
+Backend:         http://localhost:8095 (Go+Gin, P4)
+Chain:           Base Sepolia (84532)
+Contracts:       ShopPayment 0x7fD9208e601c69639F6875EC24717e8476A2cCb1
+                 MockUSDC    0xe0661BAff428a1d57cb717E5Ce15Deca4F847E90
+
+── Build ───────────────────────────────────────────────────────────────
+  npm run build (tsc && vite build):  EXIT 0
+    ✓ 390 modules transformed.
+    dist/index.html                   0.72 kB │ gzip:   0.46 kB
+    dist/assets/index-DBhrJuFC.css   10.16 kB │ gzip:   2.47 kB
+    dist/assets/ccip-D9CqYqpq.js      2.60 kB │ gzip:   1.23 kB
+    dist/assets/index-DudVx20O.js   379.91 kB │ gzip: 120.52 kB
+    ✓ built in 2.57s
+
+  Dockerfile.ci (Jenkins): docker build -f web/Dockerfile.ci -t shop-web-ci . && docker run --rm shop-web-ci
+    docker build:  EXIT 0 (RUN npm run build at build time)
+    docker run:    EXIT 0 (CMD npm run build re-verifies dist output)
+    run output:    ✓ 390 modules transformed, dist/*.js/css produced
+
+── Local manual verification (backend + vite dev) ─────────────────────
+  Backend GET /api/products:         HTTP 200
+  Vite dev GET /:                    HTTP 200
+  Vite proxy GET /api/products:      HTTP 200
+  Listed products via proxy:         19 (all status='listed')
+  HTML title:                        "직구창고 — 알리익스프레스 직배송 상점"
+  Product detail API (id=20):        id=20 title="P4 Sync Listed Product"
+                                     salePriceKrw=16700 originalPriceKrw=27000
+
+── Browser QA (Playwright chromium) ───────────────────────────────────
+  Product list (/):                  19 product cards render
+                                     store name "직구창고", gray "지갑 연결" button,
+                                     USDC notice present, image fallback "이미지 준비 중"
+  Product detail (/products/20):     "장바구니 담기" button + honest price table render
+  Cart (/cart):                      renders, "결제 수단: USDC (Base Sepolia 테스트넷)"
+  Orders (/orders, no auth):         "주문 내역을 보려면 지갑 로그인이 필요해요" notice
+  Console:                           no JS errors (only placeholder img.example.com
+                                     image 404s — handled by Korean image fallback)
+
+── Pages implemented ──────────────────────────────────────────────────
+  /              ProductList   — listed product card grid (원가/판매가/할인율 table)
+  /products/:id  ProductDetail — image/description/price table/cart add
+  /cart          CartPage      — qty controls, KRW total
+  /checkout      CheckoutPage  — wallet connect → auth → order → approve → pay → verify
+  /orders        OrdersPage    — my orders with status badges (pending/registered/paid/fulfilled)
+  /orders/:id    OrderDetailPage — status/tx_hash(basescan link)/items/guidance
+
+── Design guide (AI 티 금지) compliance ───────────────────────────────
+  Colors:        cream #FAF9F6 bg, charcoal #2A2A28 text, brass #B8860B accent
+  Fonts:         Noto Serif KR headings + Noto Sans KR body (index.html Google Fonts)
+  Wallet button: gray (--gray-bg #ecebe7), not blue/brass
+  Discount tag:  hand-taped style (rotate(-4deg), brass bg, white text)
+  Price table:   honest 원가/판매가/할인율, tabular numbers
+  Copy:          shop-owner tone — "알리익스프레스 직배송, 평균 2~3주",
+                 "USDC 결제는 수수료가 없어요", "테스트넷 상점입니다 — 실결제 아님"
+  USDC notice:   quiet (footer + checkout page-sub), no crypto-lock hype
+  Forbidden:     NO gradients, NO glassmorphism, NO neon, NO dark+gold,
+                 NO emoji, NO "초특가!" tone, NO Inter/system font,
+                 NO uppercase placeholders, NO Lorem ipsum, NO "AI가 추천한"
+  Card hover:    slight rise (translateY(-2px) + soft shadow)
+
+── Result ─────────────────────────────────────────────────────────────
+  P5 FRONTEND: PASS (build green, pages render, design guide compliant)
+================================================================================
