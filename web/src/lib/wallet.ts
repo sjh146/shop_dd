@@ -1,5 +1,5 @@
 // viem 2.21.55 wallet helpers — MetaMask SDK (데스크톱 확장 + 모바일 QR) + Base Sepolia USDC flow.
-import MetaMaskSDK, { type SDKProvider } from '@metamask/sdk'
+import MetaMaskSDK from '@metamask/sdk'
 import {
   createWalletClient,
   createPublicClient,
@@ -77,26 +77,33 @@ const shopPaymentAbi = [
 
 let walletClient: WalletClient | null = null
 let publicClient: PublicClient | null = null
-let sdkProvider: SDKProvider | null = null
+let sdkInstance: MetaMaskSDK | null = null
 
-// MetaMask SDK 프로바이더 (EIP-1193).
-// 데스크톱: 확장 프로그램 자동 감지 → 확장 주입. 모바일: QR 모달 → 모바일 앱 deeplink.
+// MetaMask SDK (EIP-1193 프로바이더 + QR 모달).
+// 데스크톱: 확장 프로그램 자동 감지 → 확장 주입. 모바일: QR 모달 → MetaMask 앱 deeplink.
 // (모바일 MetaMask는 window.ethereum을 주입할 수 없으므로 SDK가 QR로 연결해줌)
-function getSdkProvider(): SDKProvider | null {
+function getSdkInstance(): MetaMaskSDK | null {
   if (typeof window === 'undefined') return null
-  if (!sdkProvider) {
+  if (!sdkInstance) {
     try {
-      const sdk = new MetaMaskSDK({
+      sdkInstance = new MetaMaskSDK({
         dappMetadata: { name: '직구창고', url: window.location.origin },
+        injectProvider: true,
         checkInstallationImmediately: false,
+        checkInstallationOnAllCalls: false,
         logging: { developerMode: false }
       })
-      sdkProvider = sdk.getProvider() ?? null
     } catch {
-      sdkProvider = null
+      sdkInstance = null
     }
   }
-  return sdkProvider
+  return sdkInstance
+}
+
+function getWalletProvider(): Parameters<typeof custom>[0] | undefined {
+  const sdk = getSdkInstance()
+  const provider = (sdk?.getProvider() as Parameters<typeof custom>[0] | undefined) ?? window.ethereum
+  return provider as Parameters<typeof custom>[0] | undefined
 }
 
 function getPublicClient(): PublicClient {
@@ -111,9 +118,7 @@ function getPublicClient(): PublicClient {
 
 function getWalletClient(): WalletClient {
   if (!walletClient) {
-    const provider =
-      (getSdkProvider() as Parameters<typeof custom>[0] | null) ??
-      (window.ethereum as Parameters<typeof custom>[0] | undefined)
+    const provider = getWalletProvider()
     if (!provider) {
       throw new Error('no-wallet-provider')
     }
@@ -127,8 +132,42 @@ function getWalletClient(): WalletClient {
 
 export function hasEthereum(): boolean {
   if (typeof window === 'undefined') return false
-  // SDK가 있으면 모바일 QR 연결까지 가능 — 확장 프로그램 없이도 지갑 연결 가능
-  return Boolean(getSdkProvider() || window.ethereum)
+  // SDK가 있으면 확장 프로그램 없이도 모바일 QR 연결 가능
+  return Boolean(getSdkInstance() || window.ethereum)
+}
+
+export async function connect(): Promise<Address> {
+  const sdk = getSdkInstance()
+  if (sdk) {
+    try {
+      if (!sdk.isInitialized()) {
+        await sdk.init()
+      }
+      // SDK connect: 데스크톱 확장 팝업 / 모바일 QR 모달 자동 처리
+      const accounts = await sdk.connect()
+      const [address] = (accounts as Address[]) ?? []
+      if (!address) {
+        throw new Error('no-accounts')
+      }
+      return address
+    } catch (e) {
+      // SDK 연결 실패 시 확장 프로그램 폴백
+      if (!window.ethereum) {
+        throw e
+      }
+    }
+  }
+  // 폴백: window.ethereum (확장 프로그램) — eth_requestAccounts로 실제 프롬프트
+  const client = createWalletClient({
+    chain: baseSepolia,
+    transport: custom(window.ethereum as Parameters<typeof custom>[0])
+  })
+  const accounts = (await client.request({ method: 'eth_requestAccounts' })) as Address[]
+  const [address] = accounts
+  if (!address) {
+    throw new Error('no-accounts')
+  }
+  return address
 }
 
 export async function getChainId(): Promise<number> {
@@ -150,20 +189,6 @@ export async function switchToBaseSepolia(): Promise<void> {
       throw err
     }
   }
-}
-
-export async function connect(): Promise<Address> {
-  const client = getWalletClient()
-  // eth_requestAccounts — MetaMask 연결 프롬프트를 실제로 띄움.
-  // (getAddresses/eth_accounts는 사이트 승인 전엔 빈 배열을 반환해 조용히 실패함)
-  const accounts = (await client.request({
-    method: 'eth_requestAccounts'
-  })) as Address[]
-  const [address] = accounts
-  if (!address) {
-    throw new Error('no-accounts')
-  }
-  return address
 }
 
 export async function signMessage(message: string, account: Address): Promise<string> {
