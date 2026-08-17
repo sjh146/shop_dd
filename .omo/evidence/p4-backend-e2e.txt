@@ -1,0 +1,59 @@
+================================================================================
+P4 — Backend Integration E2E Evidence (shop_dd :8095 + gateway :8091 + Base Sepolia)
+================================================================================
+Date:            2026-08-17T12:52:44.811Z
+Backend:         http://localhost:8095
+Gateway:         http://localhost:8091
+RPC:             https://sepolia.base.org
+Chain:           Base Sepolia (84532)
+
+Flow: wallet auth → product list → order create → on-chain pay → verify
+
+── Step 1: Payer wallet ──────────────────────────────────────────────
+  payer address:  0x889300ad92480e25AE275b990823A37907ce7304
+  payer key file: /tmp/shop_e2e_payer.key (reused)
+
+── Step 2: Wallet auth ───────────────────────────────────────────────
+  nonce HTTP:     200
+  nonce:          9d9277c4762862bc1ab50a551ed4e1701796299bba30423e2c863c46ead4d4da
+  verify HTTP:    200
+  JWT token:      eyJhbGciOiJIUzI1NiIs... (353 chars)
+  auth wallet:    0x889300ad92480e25ae275b990823a37907ce7304
+  auth user id:   1
+
+── Step 3: Product list ──────────────────────────────────────────────
+  products HTTP:  200
+  listed count:   19
+  first product:  id=20 title="P4 Sync Listed Product" salePriceKrw=16700
+
+── Step 4: Order creation ────────────────────────────────────────────
+  order HTTP:     201
+  order_id:       1
+  amount_usdc_micro: 12000000
+  gateway_order_id:  90743482286830539503240959006302832933333810038750515972785732718729991261126
+  contract_address:  0x7fD9208e601c69639F6875EC24717e8476A2cCb1
+  usdc_token:        0xe0661BAff428a1d57cb717E5Ce15Deca4F847E90
+
+── Step 5: On-chain payment ──────────────────────────────────────────
+  payer USDC (before): 15000000 (15 mUSDC)
+  faucet_tx:      n/a (skipped)
+  approve_tx:     0x8aab67cb26d5a52ccddf1293e1b93f3ffb84c4fcf2fa5682706f08b9306bddb2
+  on-chain orderAmount: 12000000
+  processedOrderIds (before): false
+  pay_tx:         0x17cf89284114ab896fd07677e7094055f99de55216e93e6e9b4d7fa9200ea8dd
+  processedOrderIds (after):  true
+
+── Step 6: Verify ────────────────────────────────────────────────────
+  verify HTTP:    200
+  order status:   paid
+  order txHash:   0x17cf89284114ab896fd07677e7094055f99de55216e93e6e9b4d7fa9200ea8dd
+  order gatewayOrderId: 90743482286830539503240959006302832933333810038750515972785732718729991261126
+
+── Step 7: Balance checks ────────────────────────────────────────────
+  payer USDC (after):  3000000 (3 mUSDC)
+  ShopPayment USDC:    0 (0 mUSDC)
+  Treasury USDC:       17000000 (17 mUSDC)
+
+── Result ────────────────────────────────────────────────────────────
+  E2E BACKEND FLOW: PASS (order status=paid, tx_hash=0x17cf89284114ab896fd07677e7094055f99de55216e93e6e9b4d7fa9200ea8dd)
+================================================================================

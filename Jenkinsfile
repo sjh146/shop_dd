@@ -27,9 +27,15 @@ pipeline {
             }
         }
 
-        // P2+: contracts (hardhat), server (go test golang:1.25), web (vite build) 스테이지 추가
+        // P4: backend_test — Go build/vet/test in golang:1.25 (Dockerfile.ci)
+        stage('backend_test') {
+            steps {
+                sh 'docker build -f server/Dockerfile.ci -t shop-server-ci . && docker run --rm shop-server-ci'
+            }
+        }
+
+        // P2+: contracts (hardhat), web (vite build) 스테이지 추가
         // stage('contracts_test') { sh 'docker compose run --rm --build test-contracts' }
-        // stage('backend_test')  { sh 'docker compose run --rm --build test-go' }
         // stage('frontend_ci')   { sh 'docker compose run --rm --build test-front' }
         // stage('compose_smoke') { sh 'docker compose config -q' }
     }

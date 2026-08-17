@@ -1,0 +1,8 @@
+# CI test image — built from repo root (Jenkins: docker build -f server/Dockerfile.ci -t shop-server-ci .)
+# go.mod/go.sum live in server/, so COPY them from there.
+FROM golang:1.25-alpine
+WORKDIR /app
+COPY server/go.mod server/go.sum ./
+RUN go mod download
+COPY server/ .
+CMD ["sh", "-c", "go build ./... && go vet ./... && go test ./..."]

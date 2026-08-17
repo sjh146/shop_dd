@@ -12,6 +12,7 @@ coverage/
 
 # go
 server/bin/
+server/shop-server-bin
 *.test
 
 # hardhat / artifacts
@@ -24,3 +25,5 @@ contracts/typechain-types/
 *.log
 /tmp/
 .omo/run-continuation/
+.omo/notepads/
+.omo/plans/

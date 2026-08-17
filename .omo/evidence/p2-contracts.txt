@@ -1,0 +1,57 @@
+# P2 contracts — 실행 증거 (2026-08-17)
+
+## 환경
+- Node: v22.23.2, npm 10.9.8
+- hardhat ^2.22.10, @nomicfoundation/hardhat-toolbox ^5, @openzeppelin/contracts ^5.0.2
+- solidity 0.8.24, optimizer runs 200, CommonJS hardhat.config.js
+- 네트워크: baseSepolia (url=https://sepolia.base.org, chainId=84532)
+
+## 1. npm install
+- added 641 packages, audited 642 (45 vulns — 전부 hardhat/hardhat-toolbox 전이 dev 의존성, 프로덕션 노출 없음)
+
+## 2. hardhat test (9 passing)
+```
+ShopPayment
+  ✔ 배포: owner == deployer, usdc() == MockUSDC, treasury() == treasury (682ms)
+  ✔ 미등록 주문 pay → OrderNotRegistered (60ms)
+  ✔ registerOrder 후 pay: payer가 아니면 NotOrderPayer, 금액 불일치 AmountMismatch (41ms)
+  ✔ pay 성공: processedOrderIds==true, PaymentSettled 이벤트(treasury 포함), USDC 이동(6자리) (49ms)
+  ✔ 중복 registerOrder(같은 orderId) → OrderAlreadyRegistered
+  ✔ cancelOrder: 미등록 OrderNotRegistered / processed OrderAlreadyPaid / 성공 시 재등록 가능 (45ms)
+  ✔ registerOrder는 owner만 (비owner revert)
+  ✔ setTreasury: zero-address ZeroAddress, 비owner revert
+  ✔ MockUSDC: decimals()==6, faucet mint 증가 확인
+
+9 passing (998ms)
+```
+
+## 3. 배포 (Base Sepolia, deployer=0x519c8b06D8E57969B4886e1028863BcDb0C425c4)
+```
+Deployer: 0x519c8b06D8E57969B4886e1028863BcDb0C425c4
+MockUSDC deployed at: 0xe0661BAff428a1d57cb717E5Ce15Deca4F847E90
+Using freshly-deployed MockUSDC as USDC: 0xe0661BAff428a1d57cb717E5Ce15Deca4F847E90
+Treasury: 0x519c8b06D8E57969B4886e1028863BcDb0C425c4
+--- Gas pre-check ---
+Deployer balance: 0.00096808831419406 ETH
+Estimated gas: 626578
+Gas price: 0.006 gwei
+Estimated deploy cost: 0.000003759468 ETH
+Required balance (1.5x margin): 0.000005639202 ETH
+Balance sufficient. Proceeding with deployment.
+ShopPayment deployed at: 0x7fD9208e601c69639F6875EC24717e8476A2cCb1
+deployed-base-sepolia.json written
+```
+
+## 4. 온체인 검증 (curl RPC)
+- eth_chainId = 0x14a34 = 84532 ✓
+- MockUSDC symbol() = "mUSDC" ✓
+- MockUSDC decimals() = 6 ✓
+- ShopPayment owner() = 0x519c8b06D8E57969B4886e1028863BcDb0C425c4 == deployer ✓
+- ShopPayment eth_getCode != 0x (bytecode 존재) ✓
+- MockUSDC eth_getCode != 0x (bytecode 존재) ✓
+
+## 배포 주소
+- ShopPayment: 0x7fD9208e601c69639F6875EC24717e8476A2cCb1
+- MockUSDC: 0xe0661BAff428a1d57cb717E5Ce15Deca4F847E90
+- Treasury: 0x519c8b06D8E57969B4886e1028863BcDb0C425c4
+- deployedAt: 2026-08-17T11:56:27.129Z

@@ -1,0 +1,31 @@
+================================================================================
+P4 — Sync E2E Evidence (selling_dd → shop_dd)
+================================================================================
+Date:           2026-08-17
+Source:         selling_dd Postgres (localhost:5432, read-only account shop_sync)
+Target:         shop_dd Postgres (localhost:5435)
+Sync worker:    server/internal/sync/sync.go (ticker 5min + once at start)
+
+Sample products inserted into selling_dd:
+  id=20  P4 Sync Listed Product    status=manifest_ready  sale_price=12.34  → listed
+  id=21  P4 Sync Unlisted Product  status=manifest_ready  sale_price=0      → unlisted
+
+Sync result (shop_dd products):
+  SELECT title, sale_price_krw, status FROM products WHERE selling_product_id IN (20,21);
+          title           | sale_price_krw |  status
+  ------------------------+----------------+----------
+   P4 Sync Listed Product |          16700 | listed
+   P4 Sync Unlisted Product |              | unlisted
+
+KRW conversion verified: 12.34 USD → int(12.34*1350)=16659 → round(16659/100)*100 = 16700 KRW
+sale_price='0' → excluded from listed (unlisted), sale_price_krw=NULL
+
+Full shop_dd products state:
+  status  | count
+  --------+-------
+  unlisted |     2
+  listed   |    19
+
+API GET /api/products returns only listed products (19, all status='listed').
+Sync worker log: "[sync] sync complete: 21 products upserted"
+================================================================================
