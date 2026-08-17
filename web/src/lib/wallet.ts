@@ -124,7 +124,12 @@ export async function switchToBaseSepolia(): Promise<void> {
 
 export async function connect(): Promise<Address> {
   const client = getWalletClient()
-  const [address] = await client.getAddresses()
+  // eth_requestAccounts — MetaMask 연결 프롬프트를 실제로 띄움.
+  // (getAddresses/eth_accounts는 사이트 승인 전엔 빈 배열을 반환해 조용히 실패함)
+  const accounts = (await client.request({
+    method: 'eth_requestAccounts'
+  })) as Address[]
+  const [address] = accounts
   if (!address) {
     throw new Error('no-accounts')
   }

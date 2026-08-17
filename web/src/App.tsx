@@ -8,22 +8,34 @@ import { CartPage } from './pages/CartPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { OrderDetailPage } from './pages/OrderDetailPage'
-import { connect, hasEthereum, getChainId, BASE_SEPOLIA_CHAIN_ID } from './lib/wallet'
+import { connect, hasEthereum, getChainId, switchToBaseSepolia, BASE_SEPOLIA_CHAIN_ID } from './lib/wallet'
 
 export default function App() {
   const [address, setAddress] = useState<string | null>(null)
+  const [walletNotice, setWalletNotice] = useState<string | null>(null)
 
   const handleConnect = async () => {
-    if (!hasEthereum()) return
+    if (!hasEthereum()) {
+      setWalletNotice(
+        '지갑 연결하려면 브라우저에 MetaMask 확장 프로그램이 필요해요. ' +
+          'https://metamask.io/download/ 에서 설치한 뒤 이 페이지를 새로고침해주세요.'
+      )
+      return
+    }
+    setWalletNotice(null)
     try {
       const addr = await connect()
       setAddress(addr)
-      const chainId = await getChainId()
-      if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
-        // Header just shows connected; checkout handles network switch.
+      try {
+        const chainId = await getChainId()
+        if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
+          await switchToBaseSepolia()
+        }
+      } catch {
+        // 네트워크 전환은 체크아웃에서 다시 안내 — 연결 자체는 유지
       }
     } catch {
-      // silent — user cancelled
+      // user cancelled — silent
     }
   }
 
@@ -38,6 +50,13 @@ export default function App() {
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
       />
+      {walletNotice ? (
+        <div className="container">
+          <div className="notice notice--quiet" style={{ marginTop: 16 }}>
+            {walletNotice}
+          </div>
+        </div>
+      ) : null}
       <main>
         <Routes>
           <Route path="/" element={<ProductList />} />
