@@ -206,20 +206,48 @@ export async function switchToBaseSepolia(): Promise<boolean> {
 }
 
 export async function signMessage(message: string, account: Address): Promise<string> {
-  // viem 계층을 우회해 provider에 직접 personal_sign — MetaMask SDK 중계에서
-  // viem의 signMessage 응답이 유실되는 문제 회피 (nonce만 가고 verify가 안 가던 증상)
+  const sdk = getSdkInstance()
+  // 1) SDK 네이티브 로그인 흐름 (connectAndSign) — 모바일 중계에 최적화된 서명 경로
+  if (sdk) {
+    try {
+      if (!sdk.isInitialized()) {
+        await sdk.init()
+      }
+      const res = await sdk.connectAndSign({ msg: message })
+      if (Array.isArray(res)) {
+        // [address, signature] 형태
+        const sig = res[1] as string | undefined
+        if (typeof sig === 'string' && sig.startsWith('0x')) {
+          console.log('[wallet] signMessage via connectAndSign')
+          return sig
+        }
+      } else if (typeof res === 'string' && res.startsWith('0x')) {
+        console.log('[wallet] signMessage via connectAndSign (single)')
+        return res
+      }
+    } catch {
+      // fall through — provider 직접 요청으로
+    }
+  }
+
+  // 2) provider 직접 personal_sign (헥스 인코딩 — SDK 중계가 평문 메시지를 유실하는 케이스 대응)
   const provider = getWalletProvider()
   if (!provider) {
     throw new Error('no-wallet-provider')
   }
-  // 90초 타임아웃: 모바일 앱 서명 대기. 무한 대기 방지 (hang 방지)
+  const hexMessage =
+    '0x' +
+    Array.from(new TextEncoder().encode(message))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  // 60초 타임아웃: 모바일 앱 서명 대기. 무한 대기 방지
   const timeout = new Promise<never>((_, rej) =>
-    setTimeout(() => rej(new Error('서명 요청이 시간 초과됐어요. MetaMask 앱을 확인해 주세요.')), 90_000)
+    setTimeout(() => rej(new Error('서명 요청이 시간 초과됐어요. MetaMask 앱을 확인해 주세요.')), 60_000)
   )
   const sig = (await Promise.race([
     provider.request({
       method: 'personal_sign',
-      params: [message, account]
+      params: [hexMessage, account]
     }),
     timeout
   ])) as string
