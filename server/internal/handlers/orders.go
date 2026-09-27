@@ -12,6 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// orderReference — 게이트웨이 reference_id에 네임스페이스를 붙인다.
+// DB 재시드 등으로 주문 id가 재사용돼도 온체인 orderId(keccak256(reference_id))가
+// 과거 테스트 결제(keccak("2") 등)와 충돌하지 않게 한다. (2026-09-27)
+func orderReference(orderID int) string {
+	return "shop_dd-" + strconv.Itoa(orderID)
+}
+
 // CreateOrder — POST /api/orders (JWT)
 // items 검증 (stock/listed) → total_krw 계산 → order 생성 (pending) →
 // gateway register → 성공 시 registered + gateway_order_id 저장, 실패 시 pending 유지.
@@ -139,10 +146,10 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// ⑤ gateway register (reference_id = order id string)
+		// ⑤ gateway register (reference_id = orderReference — "shop_dd-N" 네임스페이스, 온체인 orderId 충돌 방지)
 		//    실패해도 pending 유지 (no-downtime 원칙)
 		gatewayOrderID := ""
-		if gwResult, gwErr := registerWithGateway(strconv.Itoa(order.ID), wallet, totalUsdcMicro); gwErr == nil {
+		if gwResult, gwErr := registerWithGateway(orderReference(order.ID), wallet, totalUsdcMicro); gwErr == nil {
 			if oid, ok := gwResult["order_id"].(string); ok {
 				gatewayOrderID = oid
 			}
@@ -213,7 +220,7 @@ func VerifyOrder(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// gateway 온체인 검증
-		gatewayResult, gwErr := verifyWithGateway(strconv.Itoa(order.ID))
+		gatewayResult, gwErr := verifyWithGateway(orderReference(order.ID))
 		if gwErr != nil {
 			c.JSON(http.StatusOK, gin.H{"order": order, "verifyError": gwErr.Error()})
 			return
