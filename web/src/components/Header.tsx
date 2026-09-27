@@ -25,13 +25,13 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
         <Link to="/" className="site-header__brand">
           사이버몰
         </Link>
-        <nav className="site-header__nav">
-          <Link to="/orders" className="site-header__link">
+        <nav className="site-header__nav" aria-label="주요 메뉴">
+          <Link to="/orders" className="site-header__link" data-testid="orders-link">
             주문내역
           </Link>
-          <Link to="/cart" className="site-header__cart">
+          <Link to="/cart" className="site-header__cart" data-testid="cart-link">
             장바구니
-            {count > 0 ? <span className="cart-badge">{count}</span> : null}
+            {count > 0 ? <span className="cart-badge" data-testid="cart-count">{count}</span> : null}
           </Link>
           {user ? (
             <>
@@ -42,16 +42,17 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
                 type="button"
                 className="site-header__link site-header__link--button"
                 onClick={logout}
+                data-testid="logout-button"
               >
                 로그아웃
               </button>
             </>
           ) : (
             <>
-              <Link to="/signup" className="site-header__link site-header__link--signup">
+              <Link to="/signup" className="site-header__link site-header__link--signup" data-testid="signup-link">
                 회원가입
               </Link>
-              <Link to="/login" className="site-header__link">
+              <Link to="/login" className="site-header__link" data-testid="login-link">
                 로그인
               </Link>
             </>
@@ -61,11 +62,13 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
               className="wallet-btn wallet-btn--connected"
               onClick={onDisconnect}
               title={address}
+              data-testid="wallet-disconnect"
+              data-wallet-address={address}
             >
               {shortAddress(address)}
             </button>
           ) : (
-            <button className="wallet-btn" onClick={onConnect}>
+            <button className="wallet-btn" onClick={onConnect} data-testid="wallet-connect">
               지갑 연결
             </button>
           )}

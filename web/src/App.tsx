@@ -11,17 +11,30 @@ import { OrderDetailPage } from './pages/OrderDetailPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { AuthProvider } from './lib/auth'
-import { connect, hasEthereum, getChainId, switchToBaseSepolia, BASE_SEPOLIA_CHAIN_ID, metamaskDeeplink } from './lib/wallet'
+import {
+  connect,
+  hasEthereum,
+  getChainId,
+  switchToBaseSepolia,
+  BASE_SEPOLIA_CHAIN_ID,
+  metamaskDeeplink,
+  isMobileDevice,
+  maybeOpenInMetaMaskApp
+} from './lib/wallet'
 
 export default function App() {
   const [address, setAddress] = useState<string | null>(null)
   const [walletNotice, setWalletNotice] = useState<string | null>(null)
 
   const handleConnect = async () => {
+    // 모바일 브라우저 + 지갑 없음 → MetaMask 앱 내장 브라우저로 자동 이동
+    if (maybeOpenInMetaMaskApp()) {
+      setWalletNotice('MetaMask 앱으로 이동 중… 앱이 열리지 않으면 아래 버튼을 눌러주세요.')
+      return
+    }
     if (!(await hasEthereum())) {
       setWalletNotice(
-        '지갑 연결에는 MetaMask가 필요해요. 데스크톱은 브라우저 확장(metamask.io/download)을 설치하고, ' +
-          '모바일은 아래 버튼으로 MetaMask 앱 안에서 이 페이지를 열어주세요.'
+        '지갑 연결에는 MetaMask가 필요해요. 데스크톱은 브라우저 확장(metamask.io/download)을 설치한 뒤 다시 시도해 주세요.'
       )
       return
     }
@@ -58,14 +71,26 @@ export default function App() {
           <div className="notice notice--quiet" style={{ marginTop: 16 }}>
             {walletNotice}
             <div className="mt-8">
-              <a className="btn btn--secondary" href={metamaskDeeplink()}>
-                MetaMask 앱에서 열기
-              </a>
+              {isMobileDevice() ? (
+                <a className="btn btn--secondary" href={metamaskDeeplink()} data-testid="open-metamask-app">
+                  MetaMask 앱에서 열기
+                </a>
+              ) : (
+                <a
+                  className="btn btn--secondary"
+                  href="https://metamask.io/download"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="install-metamask-extension"
+                >
+                  MetaMask 확장 설치
+                </a>
+              )}
             </div>
           </div>
         </div>
       ) : null}
-      <main>
+      <main id="main">
         <Routes>
           <Route path="/" element={<ProductList />} />
           <Route path="/products/:id" element={<ProductDetail />} />

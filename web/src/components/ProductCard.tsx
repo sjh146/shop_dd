@@ -20,7 +20,13 @@ export function ProductCard({ product }: { product: Product }) {
   const orig = product.originalPriceKrw ?? 0
 
   return (
-    <Link to={`/products/${product.id}`} className="product-card">
+    <Link
+      to={`/products/${product.id}`}
+      className="product-card"
+      data-testid="product-card"
+      data-product-id={product.id}
+      data-stock={product.stock}
+    >
       <div className="product-card__image-wrap">
         {product.imageUrl ? (
           <img
@@ -39,11 +45,11 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="product-card__image-fallback" style={{ display: product.imageUrl ? 'none' : 'flex' }}>
           이미지 준비 중
         </div>
-        {product.stock <= 0 ? <span className="soldout-tag">품절</span> : null}
+        {product.stock <= 0 ? <span className="soldout-tag" data-testid="soldout-tag">품절</span> : null}
       </div>
       <div className="product-card__body">
-        <h3 className="product-card__title">{product.title}</h3>
-        <div className="product-card__price">
+        <h3 className="product-card__title" data-testid="product-title">{product.title}</h3>
+        <div className="product-card__price" data-testid="product-price" data-sale-price-krw={sale}>
           {pct !== null ? <span className="price-pct">{pct}%</span> : null}
           <span className="price-sale">{formatKRW(sale)}</span>
           {orig > 0 ? <span className="price-original">{formatKRW(orig)}</span> : null}

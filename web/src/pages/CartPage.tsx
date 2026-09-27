@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getProducts, type Product } from '../lib/api'
 import { useCart } from '../lib/cart'
 import { formatKRW } from '../components/ProductCard'
+import { usePageTitle } from '../lib/seo'
 
 export function CartPage() {
+  usePageTitle('장바구니')
   const { items, setQty, removeItem } = useCart()
   const navigate = useNavigate()
   const [products, setProducts] = useState<Map<number, Product>>(new Map())
@@ -52,7 +54,7 @@ export function CartPage() {
         <>
           <div className="cart-list">
             {lines.map((line) => (
-              <div className="cart-item" key={line.productId}>
+              <div className="cart-item" key={line.productId} data-testid="cart-item" data-product-id={line.productId}>
                 <div className="cart-item__thumb">
                   {line.product.imageUrl ? (
                     <img src={line.product.imageUrl} alt={line.product.title} loading="lazy" />
@@ -68,6 +70,7 @@ export function CartPage() {
                       type="button"
                       onClick={() => setQty(line.productId, line.qty - 1)}
                       aria-label="수량 줄이기"
+                      data-testid="cart-qty-decrease"
                     >
                       −
                     </button>
@@ -76,16 +79,18 @@ export function CartPage() {
                       type="button"
                       onClick={() => setQty(line.productId, line.qty + 1)}
                       aria-label="수량 늘리기"
+                      data-testid="cart-qty-increase"
                     >
                       +
                     </button>
                   </div>
                 </div>
-                <div className="cart-item__total">{formatKRW(line.lineTotal)}</div>
+                <div className="cart-item__total" data-testid="cart-line-total">{formatKRW(line.lineTotal)}</div>
                 <button
                   type="button"
                   className="cart-item__remove"
                   onClick={() => removeItem(line.productId)}
+                  data-testid="cart-remove"
                 >
                   삭제
                 </button>
@@ -93,15 +98,16 @@ export function CartPage() {
             ))}
           </div>
 
-          <div className="cart-summary">
+          <div className="cart-summary" data-testid="cart-summary">
             <span className="cart-summary__label">합계</span>
-            <span className="cart-summary__total">{formatKRW(total)}</span>
+            <span className="cart-summary__total" data-testid="cart-total">{formatKRW(total)}</span>
           </div>
 
           <div className="mt-24">
             <button
               className="btn btn--primary btn--block"
               onClick={() => navigate('/checkout')}
+              data-testid="checkout-button"
             >
               결제하기
             </button>

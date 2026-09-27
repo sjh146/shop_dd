@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getProduct, type Product } from '../lib/api'
 import { useCart } from '../lib/cart'
 import { formatKRW, discountPct } from '../components/ProductCard'
+import { JsonLd, usePageTitle } from '../lib/seo'
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>()
@@ -14,6 +15,7 @@ export function ProductDetail() {
   const [error, setError] = useState<string | null>(null)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
+  usePageTitle(product?.title)
 
   useEffect(() => {
     if (!id) return
@@ -62,7 +64,31 @@ export function ProductDetail() {
   }
 
   return (
-    <div className="container page">
+    <div className="container page" data-testid="product-detail" data-product-id={product.id}>
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: product.title,
+          ...(product.description ? { description: product.description } : {}),
+          ...(product.imageUrl ? { image: product.imageUrl } : {}),
+          sku: String(product.id),
+          url: window.location.href,
+          ...(sale > 0
+            ? {
+                offers: {
+                  '@type': 'Offer',
+                  price: sale,
+                  priceCurrency: 'KRW',
+                  availability:
+                    product.stock > 0
+                      ? 'https://schema.org/InStock'
+                      : 'https://schema.org/OutOfStock'
+                }
+              }
+            : {})
+        }}
+      />
       <div className="detail">
         <div className="detail__image-wrap">
           {product.imageUrl ? (
@@ -87,18 +113,23 @@ export function ProductDetail() {
         </div>
 
         <div className="detail__info">
-          <h1 className="detail__title">{product.title}</h1>
+          <h1 className="detail__title" data-testid="product-title">{product.title}</h1>
           {product.description ? (
             <p className="detail__desc">{product.description}</p>
           ) : null}
 
-          <div className="price-block">
+          <div
+            className="price-block"
+            data-testid="product-price"
+            data-sale-price-krw={sale}
+            data-stock={product.stock}
+          >
             {pct !== null ? <span className="price-pct">{pct}%</span> : null}
             <span className="price-sale">{formatKRW(sale)}</span>
             {orig > 0 ? <span className="price-original">{formatKRW(orig)}</span> : null}
           </div>
 
-          <p className="detail__stock">
+          <p className="detail__stock" data-testid="product-stock">
             재고 {product.stock > 0 ? `${product.stock}개` : '품절'}
           </p>
 
@@ -109,6 +140,7 @@ export function ProductDetail() {
                 type="button"
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
                 aria-label="수량 줄이기"
+                data-testid="qty-decrease"
               >
                 −
               </button>
@@ -117,6 +149,7 @@ export function ProductDetail() {
                 type="button"
                 onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
                 aria-label="수량 늘리기"
+                data-testid="qty-increase"
               >
                 +
               </button>
@@ -128,6 +161,7 @@ export function ProductDetail() {
               className="btn btn--primary btn--block"
               onClick={handleAdd}
               disabled={product.stock <= 0}
+              data-testid="add-to-cart"
             >
               {added ? '장바구니에 담았어요' : '장바구니 담기'}
             </button>

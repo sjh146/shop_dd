@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getOrder, cancelOrder, type Order } from '../lib/api'
 import { formatKRW } from '../components/ProductCard'
+import { usePageTitle } from '../lib/seo'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: '결제 대기',
@@ -26,6 +27,7 @@ export function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelMsg, setCancelMsg] = useState<string | null>(null)
+  usePageTitle(order ? `주문 #${order.id}` : undefined)
 
   async function handleCancel() {
     if (!order) return
@@ -87,7 +89,7 @@ export function OrderDetailPage() {
         </Link>
       </p>
 
-      <div className="order-detail">
+      <div className="order-detail" data-testid="order-detail" data-order-id={order.id} data-status={order.status}>
         <div className="order-detail__section">
           <h3>주문 상태</h3>
           <span className={`status-badge ${STATUS_CLASS[order.status] ?? 'status-badge--pending'}`}>
@@ -100,6 +102,7 @@ export function OrderDetailPage() {
                 className="btn-cancel"
                 onClick={handleCancel}
                 disabled={cancelling}
+                data-testid="cancel-order"
               >
                 {cancelling ? '취소 중…' : '주문 취소'}
               </button>

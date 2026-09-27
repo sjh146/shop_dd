@@ -23,14 +23,17 @@ import {
   pay,
   faucet,
   BASE_SEPOLIA_CHAIN_ID,
-  metamaskDeeplink
+  metamaskDeeplink,
+  maybeOpenInMetaMaskApp
 } from '../lib/wallet'
+import { usePageTitle } from '../lib/seo'
 
 type Step = 'wallet' | 'auth' | 'order' | 'balance' | 'approve' | 'pay' | 'verify'
 
 const FAUCET_AMOUNT = 100_000_000n // 100 mUSDC
 
 export function CheckoutPage() {
+  usePageTitle('결제')
   const navigate = useNavigate()
   const { items, clear } = useCart()
   const { adoptAuth } = useAuth()
@@ -84,6 +87,11 @@ export function CheckoutPage() {
     setError(null)
     setBusy(true)
     try {
+      // 모바일 브라우저 + 지갑 없음 → MetaMask 앱 내장 브라우저로 자동 이동
+      if (maybeOpenInMetaMaskApp()) {
+        setError('MetaMask 앱으로 이동 중… 앱이 열리지 않으면 아래 "MetaMask 앱에서 열기"를 눌러주세요.')
+        return
+      }
       if (!(await hasEthereum())) {
         setError('지갑을 찾지 못했어요. 모바일은 아래 "MetaMask 앱에서 열기" 버튼으로, 데스크톱은 MetaMask 확장 설치 후 다시 시도해 주세요.')
         return
@@ -284,11 +292,16 @@ export function CheckoutPage() {
       <h1 className="page-title">결제</h1>
       <p className="page-sub">결제 수단: USDC (Base Sepolia 테스트넷)</p>
 
-      {error ? <div className="notice notice--error">{error}</div> : null}
+      {error ? <div className="notice notice--error" role="alert">{error}</div> : null}
 
-      <div className="checkout-steps">
+      <div className="checkout-steps" data-testid="checkout-steps" data-current-step={step}>
         {/* 1. Wallet connect */}
-        <div className={`checkout-step ${step === 'wallet' ? 'checkout-step--active' : ''} ${address ? 'checkout-step--done' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'wallet' ? 'checkout-step--active' : ''} ${address ? 'checkout-step--done' : ''}`}
+          data-testid="checkout-step"
+          data-step="wallet"
+          data-state={address ? 'done' : step === 'wallet' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">1</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">지갑 연결</div>
@@ -297,10 +310,20 @@ export function CheckoutPage() {
             </div>
             {!address ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleConnect} disabled={busy}>
+                <button
+                  className="btn btn--secondary"
+                  onClick={handleConnect}
+                  disabled={busy}
+                  data-testid="checkout-connect-wallet"
+                >
                   지갑 연결
                 </button>
-                <a className="btn btn--ghost" href={metamaskDeeplink()} style={{ marginLeft: 8 }}>
+                <a
+                  className="btn btn--ghost"
+                  href={metamaskDeeplink()}
+                  style={{ marginLeft: 8 }}
+                  data-testid="open-metamask-app"
+                >
                   MetaMask 앱에서 열기
                 </a>
               </div>
@@ -327,14 +350,19 @@ export function CheckoutPage() {
         </div>
 
         {/* 2. Wallet auth */}
-        <div className={`checkout-step ${step === 'auth' ? 'checkout-step--active' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'auth' ? 'checkout-step--active' : ''}`}
+          data-testid="checkout-step"
+          data-step="auth"
+          data-state={step === 'auth' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">2</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">로그인</div>
             <div className="checkout-step__desc">지갑 서명으로 로그인해 주세요.</div>
             {step === 'auth' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleAuth} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleAuth} disabled={busy} data-testid="sign-login">
                   서명하고 로그인
                 </button>
               </div>
@@ -343,7 +371,12 @@ export function CheckoutPage() {
         </div>
 
         {/* 3. Order create */}
-        <div className={`checkout-step ${step === 'order' ? 'checkout-step--active' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'order' ? 'checkout-step--active' : ''}`}
+          data-testid="checkout-step"
+          data-step="order"
+          data-state={step === 'order' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">3</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">주문 생성</div>
@@ -354,7 +387,7 @@ export function CheckoutPage() {
             </div>
             {step === 'order' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleCreateOrder} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleCreateOrder} disabled={busy} data-testid="create-order">
                   주문 생성
                 </button>
               </div>
@@ -363,7 +396,12 @@ export function CheckoutPage() {
         </div>
 
         {/* 4. Balance check */}
-        <div className={`checkout-step ${step === 'balance' ? 'checkout-step--active' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'balance' ? 'checkout-step--active' : ''}`}
+          data-testid="checkout-step"
+          data-step="balance"
+          data-state={step === 'balance' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">4</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">USDC 잔액 확인</div>
@@ -374,7 +412,7 @@ export function CheckoutPage() {
             </div>
             {step === 'balance' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleCheckBalance} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleCheckBalance} disabled={busy} data-testid="check-balance">
                   잔액 확인
                 </button>
               </div>
@@ -386,7 +424,7 @@ export function CheckoutPage() {
             ) : null}
             {insufficient ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleFaucet} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleFaucet} disabled={busy} data-testid="request-test-usdc">
                   테스트 USDC 받기
                 </button>
               </div>
@@ -395,14 +433,19 @@ export function CheckoutPage() {
         </div>
 
         {/* 5. Approve */}
-        <div className={`checkout-step ${step === 'approve' ? 'checkout-step--active' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'approve' ? 'checkout-step--active' : ''}`}
+          data-testid="checkout-step"
+          data-step="approve"
+          data-state={step === 'approve' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">5</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">USDC 승인</div>
             <div className="checkout-step__desc">결제 컨트랙트에 USDC 사용을 승인해 주세요.</div>
             {step === 'approve' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleApprove} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleApprove} disabled={busy} data-testid="approve-usdc">
                   승인하기
                 </button>
               </div>
@@ -411,7 +454,12 @@ export function CheckoutPage() {
         </div>
 
         {/* 6. Pay */}
-        <div className={`checkout-step ${step === 'pay' ? 'checkout-step--active' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'pay' ? 'checkout-step--active' : ''}`}
+          data-testid="checkout-step"
+          data-step="pay"
+          data-state={step === 'pay' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">6</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">결제</div>
@@ -422,7 +470,7 @@ export function CheckoutPage() {
             </div>
             {step === 'pay' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handlePay} disabled={busy}>
+                <button className="btn btn--primary" onClick={handlePay} disabled={busy} data-testid="pay-order">
                   결제하기
                 </button>
               </div>
@@ -431,7 +479,12 @@ export function CheckoutPage() {
         </div>
 
         {/* 7. Verify */}
-        <div className={`checkout-step ${step === 'verify' ? 'checkout-step--active' : ''}`}>
+        <div
+          className={`checkout-step ${step === 'verify' ? 'checkout-step--active' : ''}`}
+          data-testid="checkout-step"
+          data-step="verify"
+          data-state={step === 'verify' ? 'active' : 'pending'}
+        >
           <span className="checkout-step__num">7</span>
           <div className="checkout-step__body">
             <div className="checkout-step__title">결제 확인</div>
@@ -440,7 +493,7 @@ export function CheckoutPage() {
             </div>
             {step === 'verify' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleVerify} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleVerify} disabled={busy} data-testid="verify-payment">
                   결제 확인
                 </button>
               </div>

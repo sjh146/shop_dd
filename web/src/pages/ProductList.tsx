@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { getProducts, type Product } from '../lib/api'
 import { ProductCard } from '../components/ProductCard'
+import { JsonLd, usePageTitle } from '../lib/seo'
 
 export function ProductList() {
+  usePageTitle()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,11 +38,49 @@ export function ProductList() {
       ) : products.length === 0 ? (
         <div className="empty">상품이 없어요.</div>
       ) : (
-        <div className="product-grid">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        <>
+          <JsonLd
+            data={{
+              '@context': 'https://schema.org',
+              '@type': 'ItemList',
+              name: '사이버몰 상품 목록',
+              numberOfItems: products.length,
+              itemListElement: products.map((p, i) => ({
+                '@type': 'ListItem',
+                position: i + 1,
+                item: {
+                  '@type': 'Product',
+                  name: p.title,
+                  ...(p.imageUrl ? { image: p.imageUrl } : {}),
+                  ...(p.description ? { description: p.description } : {}),
+                  url: `${window.location.origin}/products/${p.id}`,
+                  ...(p.salePriceKrw
+                    ? {
+                        offers: {
+                          '@type': 'Offer',
+                          price: p.salePriceKrw,
+                          priceCurrency: 'KRW',
+                          availability:
+                            p.stock > 0
+                              ? 'https://schema.org/InStock'
+                              : 'https://schema.org/OutOfStock'
+                        }
+                      }
+                    : {})
+                }
+              }))
+            }}
+          />
+          <div
+            className="product-grid"
+            data-testid="product-grid"
+            data-product-count={products.length}
+          >
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

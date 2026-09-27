@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getOrders, type Order } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { formatKRW } from '../components/ProductCard'
+import { usePageTitle } from '../lib/seo'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: '결제 대기',
@@ -21,6 +22,7 @@ const STATUS_CLASS: Record<string, string> = {
 }
 
 export function OrdersPage() {
+  usePageTitle('주문내역')
   const { user, ready } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +93,14 @@ export function OrdersPage() {
       ) : (
         <div className="order-list">
           {orders.map((o) => (
-            <Link to={`/orders/${o.id}`} className="order-row" key={o.id}>
+            <Link
+              to={`/orders/${o.id}`}
+              className="order-row"
+              key={o.id}
+              data-testid="order-row"
+              data-order-id={o.id}
+              data-status={o.status}
+            >
               <div className="order-row__left">
                 <span className="order-row__id">주문 #{o.id}</span>
                 <span className="order-row__meta">
@@ -100,7 +109,11 @@ export function OrdersPage() {
               </div>
               <div className="order-row__right">
                 <span className="order-row__total">{formatKRW(o.totalKrw)}</span>
-                <span className={`status-badge ${STATUS_CLASS[o.status] ?? 'status-badge--pending'}`}>
+                <span
+                  className={`status-badge ${STATUS_CLASS[o.status] ?? 'status-badge--pending'}`}
+                  data-testid="status-badge"
+                  data-status={o.status}
+                >
                   {STATUS_LABELS[o.status] ?? o.status}
                 </span>
               </div>

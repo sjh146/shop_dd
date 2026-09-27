@@ -34,6 +34,26 @@ export function metamaskDeeplink(): string {
   return `https://link.metamask.io/dapp/${host}`
 }
 
+/** 모바일 브라우저(안드로이드/iOS) 여부 */
+export function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
+/**
+ * 지갑 연결 시도용: 주입된 지갑(확장/앱 브라우저)이 없고 모바일 브라우저면
+ * MetaMask 앱 내장 브라우저로 자동 이동한다. 이동을 시작했으면 true.
+ * 동기 체크 — 클릭 제스처를 유지해야 유니버설 링크가 확실히 열린다.
+ * (WalletConnect가 projectId를 받아 활성화되면 그 경로를 우선 시도하도록 바꿀 것)
+ */
+export function maybeOpenInMetaMaskApp(): boolean {
+  if (typeof window === 'undefined') return false
+  if (!isMobileDevice()) return false
+  if (extensionProvider()) return false
+  window.location.href = metamaskDeeplink()
+  return true
+}
+
 export const baseSepolia: Chain = {
   id: 84532,
   name: 'Base Sepolia',

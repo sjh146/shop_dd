@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, friendlyAuthError } from '../lib/auth'
+import { usePageTitle } from '../lib/seo'
 
 export function LoginPage() {
+  usePageTitle('로그인')
   const { login } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -26,14 +28,14 @@ export function LoginPage() {
 
   return (
     <div className="container page">
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <form className="auth-card" onSubmit={handleSubmit} data-testid="login-form">
         <div>
           <h1 className="auth-card__title">로그인</h1>
           <p className="auth-card__sub">이메일과 비밀번호로 로그인하세요.</p>
         </div>
 
         {error ? (
-          <div className="notice notice--error" style={{ margin: 0 }}>
+          <div className="notice notice--error" style={{ margin: 0 }} role="alert">
             {error}
           </div>
         ) : null}
@@ -43,11 +45,13 @@ export function LoginPage() {
           <input
             className="input"
             type="email"
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             autoComplete="email"
             required
+            data-testid="email-input"
           />
         </label>
 
@@ -56,15 +60,17 @@ export function LoginPage() {
           <input
             className="input"
             type="password"
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="비밀번호"
             autoComplete="current-password"
             required
+            data-testid="password-input"
           />
         </label>
 
-        <button className="btn btn--primary btn--block" type="submit" disabled={busy}>
+        <button className="btn btn--primary btn--block" type="submit" disabled={busy} data-testid="login-submit">
           {busy ? '로그인 중…' : '로그인'}
         </button>
 
