@@ -25,6 +25,14 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
         <Link to="/" className="site-header__brand">
           사이버몰
         </Link>
+        <span
+          className="brand-badge"
+          data-testid="payment-badge"
+          data-payment-method="metamask"
+          title="MetaMask 지갑 전용 결제 쇼핑몰"
+        >
+          MetaMask 전용
+        </span>
         <nav className="site-header__nav" aria-label="주요 메뉴">
           <Link to="/orders" className="site-header__link" data-testid="orders-link">
             주문내역
@@ -69,7 +77,7 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
             </button>
           ) : (
             <button className="wallet-btn" onClick={onConnect} data-testid="wallet-connect">
-              지갑 연결
+              MetaMask 연결
             </button>
           )}
         </nav>

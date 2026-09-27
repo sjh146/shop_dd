@@ -36,7 +36,7 @@ type Step = 'wallet' | 'auth' | 'order' | 'balance' | 'approve' | 'pay' | 'verif
 const FAUCET_AMOUNT = 100_000_000n // 100 mUSDC
 
 const STEP_LABELS: Record<Step, string> = {
-  wallet: '지갑 연결',
+  wallet: 'MetaMask 연결',
   auth: '로그인 서명',
   order: '주문 생성',
   balance: '잔액 확인',
@@ -458,9 +458,9 @@ export function CheckoutPage() {
     : null
 
   return (
-    <div className="container page">
+    <div className="container page" data-testid="checkout-page" data-payment-method="metamask">
       <h1 className="page-title">결제</h1>
-      <p className="page-sub">결제 수단: USDC (Base Sepolia 테스트넷)</p>
+      <p className="page-sub">결제 수단: MetaMask 지갑 + USDC (Base Sepolia 테스트넷)</p>
 
       {error ? <div className="notice notice--error" role="alert">{error}</div> : null}
 
@@ -489,7 +489,7 @@ export function CheckoutPage() {
         >
           <span className="checkout-step__num">1</span>
           <div className="checkout-step__body">
-            <div className="checkout-step__title">지갑 연결</div>
+            <div className="checkout-step__title">MetaMask 연결</div>
             <div className="checkout-step__desc">
               {address ? `연결됨: ${address}` : 'MetaMask 지갑을 연결해 주세요.'}
             </div>
@@ -501,7 +501,7 @@ export function CheckoutPage() {
                   disabled={busy}
                   data-testid="checkout-connect-wallet"
                 >
-                  지갑 연결
+                  MetaMask 연결
                 </button>
                 <a
                   className="btn btn--ghost"

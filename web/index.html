@@ -3,13 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>사이버몰 — 알리익스프레스 직배송 상점</title>
+    <title>사이버몰 — MetaMask 전용 USDC 결제 쇼핑몰 (테스트넷)</title>
     <meta
       name="description"
-      content="사이버몰 — 알리익스프레스 직배송 상품을 USDC로 결제하는 테스트넷 쇼핑몰"
+      content="알리익스프레스 직배송 상품을 MetaMask 지갑으로 USDC 결제하는 테스트넷 쇼핑몰 (Base Sepolia). MetaMask 전용 결제, 실제 돈은 오가지 않아요."
     />
-    <meta property="og:title" content="사이버몰 — 알리익스프레스 직배송 상점" />
-    <meta property="og:description" content="알리익스프레스 직배송 상품을 USDC로 결제하는 테스트넷 쇼핑몰" />
+    <meta property="og:title" content="사이버몰 — MetaMask 전용 USDC 결제 쇼핑몰 (테스트넷)" />
+    <meta
+      property="og:description"
+      content="알리익스프레스 직배송 상품을 MetaMask 지갑으로 USDC 결제하는 테스트넷 쇼핑몰 (Base Sepolia)."
+    />
     <meta property="og:type" content="website" />
     <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
@@ -17,8 +20,26 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
+    <!-- AI/검색엔진용 구조화 데이터 — JS 실행 없이도 읽힌다. 기계 판독 요약: /llms.txt -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "OnlineStore",
+        "name": "사이버몰",
+        "description": "MetaMask 지갑 전용 USDC 결제 테스트넷 쇼핑몰 (Base Sepolia). 알리익스프레스 직배송 상품, 실제 결제 없음.",
+        "paymentAccepted": "MetaMask wallet only (USDC on Base Sepolia testnet)",
+        "currenciesAccepted": "USDC",
+        "additionalProperty": [
+          { "@type": "PropertyValue", "name": "paymentMethod", "value": "MetaMask wallet only" },
+          { "@type": "PropertyValue", "name": "paymentToken", "value": "USDC (mock, 6 decimals)" },
+          { "@type": "PropertyValue", "name": "paymentNetwork", "value": "Base Sepolia (testnet)" },
+          { "@type": "PropertyValue", "name": "chainId", "value": "84532" },
+          { "@type": "PropertyValue", "name": "realPayments", "value": "false (testnet demo)" }
+        ]
+      }
+    </script>
   </head>
-  <body>
+  <body data-payment-method="metamask" data-payment-mode="testnet">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

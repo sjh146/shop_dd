@@ -29,7 +29,19 @@ export function ProductList() {
   return (
     <div className="container page">
       <h1 className="page-title">상품</h1>
-      <p className="page-sub">알리익스프레스 직배송 상품을 USDC로 결제하는 작은 쇼핑몰이에요. 지금은 테스트넷이라 실제 결제는 없어요.</p>
+      <p className="page-sub">알리익스프레스 직배송 상품을 MetaMask 지갑의 USDC로 결제하는 테스트넷 쇼핑몰이에요. 실제 돈은 오가지 않아요.</p>
+      <div
+        className="pay-strip"
+        data-testid="payment-notice"
+        data-payment-method="metamask"
+        data-payment-token="USDC"
+        data-payment-network="Base Sepolia"
+        data-payment-chain-id="84532"
+        data-payment-mode="testnet"
+      >
+        <span className="pay-strip__badge">MetaMask 전용 결제</span>
+        <span>USDC · Base Sepolia 테스트넷 — MetaMask 지갑으로만 결제할 수 있어요.</span>
+      </div>
 
       {loading ? (
         <div className="loading">불러오는 중…</div>

@@ -453,6 +453,58 @@ button.text-link:hover {
   margin-bottom: 24px;
 }
 
+/* MetaMask 전용 결제 표현 — 사람과 AI 공용 신호 */
+.pay-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 0;
+  margin: 0 0 28px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pay-strip__badge,
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.pay-strip__badge::before,
+.brand-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f6851b; /* MetaMask fox orange */
+}
+
+.brand-badge {
+  margin-left: 10px;
+  margin-right: auto;
+  padding: 2px 9px;
+  font-size: 11px;
+}
+
+@media (max-width: 560px) {
+  .brand-badge {
+    display: none;
+  }
+}
+
 /* ── Product detail ─────────────────────────────────────────────────────── */
 
 .detail {

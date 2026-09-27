@@ -5,7 +5,7 @@ export function usePageTitle(title?: string): void {
   useEffect(() => {
     document.title = title
       ? `${title} — 사이버몰`
-      : '사이버몰 — 알리익스프레스 직배송 상점'
+      : '사이버몰 — MetaMask 전용 결제 (테스트넷)'
   }, [title])
 }
 
