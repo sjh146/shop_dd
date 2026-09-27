@@ -23,7 +23,7 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
     <header className="site-header">
       <div className="site-header__inner">
         <Link to="/" className="site-header__brand">
-          직구창고
+          사이버몰
         </Link>
         <nav className="site-header__nav">
           <Link to="/" className="site-header__link site-header__link--home">

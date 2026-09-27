@@ -99,7 +99,7 @@ async function getWcProvider(): Promise<EIP1193Provider | null> {
       chains: [BASE_SEPOLIA_CHAIN_ID],
       rpcMap: { [BASE_SEPOLIA_CHAIN_ID]: 'https://sepolia.base.org' },
       metadata: {
-        name: '직구창고',
+        name: '사이버몰',
         description: '알리익스프레스 직배송 상품을 USDC로 결제하는 테스트넷 직구 상점',
         url: typeof window !== 'undefined' ? window.location.origin : '',
         icons: []
