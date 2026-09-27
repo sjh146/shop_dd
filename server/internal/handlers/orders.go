@@ -42,6 +42,13 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// ⓪ 배송지 검증 (선택 — 값이 있으면 DB/재고를 건드리기 전에 검증, 위반 시 400)
+		shipping := normaliseShipping(req.Shipping)
+		if msg := validateShipping(shipping); msg != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+
 		// ① items 집계 — 중복 productId 합산 (오버셀 방지, CWE-639)
 		type lineItem struct {
 			productID int
@@ -114,17 +121,17 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 		totalUsdcMicro := krwToUsdcMicro(totalKRW)
 
 		// ④ order 생성 (pending) + order_items — 같은 트랜잭션
+		//    ship_* 7컬럼 포함 (배송지 없으면 NULL — 과거와 동일한 동작)
+		insertArgs := []interface{}{userID, wallet, totalKRW, totalUsdcMicro}
+		insertArgs = append(insertArgs, shippingArgs(shipping)...)
+
 		var order models.Order
-		err = tx.QueryRow(`
-			INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro)
-			VALUES ($1, $2, 'pending', $3, $4)
-			RETURNING id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-			          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
-		`, userID, wallet, totalKRW, totalUsdcMicro).Scan(
-			&order.ID, &order.UserID, &order.WalletAddress, &order.Status,
-			&order.TotalKRW, &order.TotalUsdcMicro, &order.GatewayOrderID, &order.TxHash,
-			&order.CreatedAt, &order.UpdatedAt,
-		)
+		err = scanOrderInto(tx.QueryRow(`
+			INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro,
+			                    ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip)
+			VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			RETURNING `+orderSelectColumns+`
+		`, insertArgs...), &order)
 		if err != nil {
 			respondDBError(c, err)
 			return
@@ -197,15 +204,10 @@ func VerifyOrder(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var order models.Order
-		err = db.QueryRow(`
-			SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-			       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		err = scanOrderInto(db.QueryRow(`
+			SELECT `+orderSelectColumns+`
 			FROM orders WHERE id = $1
-		`, id).Scan(
-			&order.ID, &order.UserID, &order.WalletAddress, &order.Status,
-			&order.TotalKRW, &order.TotalUsdcMicro, &order.GatewayOrderID, &order.TxHash,
-			&order.CreatedAt, &order.UpdatedAt,
-		)
+		`, id), &order)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "order not found"})
 			return
@@ -245,15 +247,10 @@ func VerifyOrder(db *sql.DB) gin.HandlerFunc {
 				order.TxHash = txHash
 			} else {
 				// 이미 paid — DB의 기존 상태를 재조회해 응답 오염 방지
-				_ = db.QueryRow(`
-					SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-					       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+				_ = scanOrderInto(db.QueryRow(`
+					SELECT `+orderSelectColumns+`
 					FROM orders WHERE id = $1
-				`, order.ID).Scan(
-					&order.ID, &order.UserID, &order.WalletAddress, &order.Status,
-					&order.TotalKRW, &order.TotalUsdcMicro, &order.GatewayOrderID, &order.TxHash,
-					&order.CreatedAt, &order.UpdatedAt,
-				)
+				`, order.ID), &order)
 			}
 		}
 
@@ -272,8 +269,7 @@ func GetOrders(db *sql.DB) gin.HandlerFunc {
 		}
 
 		rows, err := db.Query(`
-			SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-			       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+			SELECT `+orderSelectColumns+`
 			FROM orders WHERE user_id = $1
 			ORDER BY id DESC
 		`, userID)
@@ -286,11 +282,7 @@ func GetOrders(db *sql.DB) gin.HandlerFunc {
 		orders := []models.Order{}
 		for rows.Next() {
 			var o models.Order
-			if err := rows.Scan(
-				&o.ID, &o.UserID, &o.WalletAddress, &o.Status,
-				&o.TotalKRW, &o.TotalUsdcMicro, &o.GatewayOrderID, &o.TxHash,
-				&o.CreatedAt, &o.UpdatedAt,
-			); err != nil {
+			if err := scanOrderInto(rows, &o); err != nil {
 				respondDBError(c, err)
 				return
 			}
@@ -313,15 +305,10 @@ func GetOrder(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var order models.Order
-		err = db.QueryRow(`
-			SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-			       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		err = scanOrderInto(db.QueryRow(`
+			SELECT `+orderSelectColumns+`
 			FROM orders WHERE id = $1
-		`, id).Scan(
-			&order.ID, &order.UserID, &order.WalletAddress, &order.Status,
-			&order.TotalKRW, &order.TotalUsdcMicro, &order.GatewayOrderID, &order.TxHash,
-			&order.CreatedAt, &order.UpdatedAt,
-		)
+		`, id), &order)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "order not found"})
 			return

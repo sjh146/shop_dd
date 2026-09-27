@@ -23,15 +23,19 @@ func orderInsertRows(id, userID int, wallet string, totalKRW int, totalUsdcMicro
 	return sqlmock.NewRows([]string{
 		"id", "user_id", "wallet_address", "status", "total_krw", "total_usdc_micro",
 		"gateway_order_id", "tx_hash", "created_at", "updated_at",
-	}).AddRow(id, userID, wallet, "pending", totalKRW, totalUsdcMicro, "", "", created, created)
+		"ship_name", "ship_phone", "ship_address1", "ship_address2", "ship_city", "ship_state", "ship_zip",
+	}).AddRow(id, userID, wallet, "pending", totalKRW, totalUsdcMicro, "", "", created, created,
+		nil, nil, nil, nil, nil, nil, nil)
 }
 
 func orderSelectRows(order models.Order, created time.Time) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
 		"id", "user_id", "wallet_address", "status", "total_krw", "total_usdc_micro",
 		"gateway_order_id", "tx_hash", "created_at", "updated_at",
+		"ship_name", "ship_phone", "ship_address1", "ship_address2", "ship_city", "ship_state", "ship_zip",
 	}).AddRow(order.ID, order.UserID, order.WalletAddress, order.Status,
-		order.TotalKRW, order.TotalUsdcMicro, order.GatewayOrderID, order.TxHash, created, created)
+		order.TotalKRW, order.TotalUsdcMicro, order.GatewayOrderID, order.TxHash, created, created,
+		nil, nil, nil, nil, nil, nil, nil)
 }
 
 // TestVerifyOrderOwnershipEnforced confirms the IDOR guard on
@@ -49,7 +53,8 @@ func TestVerifyOrderOwnershipEnforced(t *testing.T) {
 	// order id=5 belongs to user 99; requester is user 7
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 99, WalletAddress: "0xvictim", Status: "registered", TotalKRW: 13500, TotalUsdcMicro: 10_000_000,
@@ -83,7 +88,8 @@ func TestGetOrderOwnershipEnforced(t *testing.T) {
 	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 99, WalletAddress: "0xvictim", Status: "registered", TotalKRW: 13500, TotalUsdcMicro: 10_000_000,
@@ -199,11 +205,13 @@ func TestCreateOrderStockDecremented(t *testing.T) {
 	`).WithArgs(5, 1).WillReturnRows(productRows)
 
 	mock.ExpectQuery(`
-		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro)
-		VALUES ($1, $2, 'pending', $3, $4)
+		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro,
+		                    ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip)
+		VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
-	`).WithArgs(7, "0xbuyer", 13500*5, int64(krwToUsdcMicro(13500*5))).WillReturnRows(orderInsertRows(9, 7, "0xbuyer", 13500*5, krwToUsdcMicro(13500*5), now))
+		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		          ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
+	`).WithArgs(7, "0xbuyer", 13500*5, int64(krwToUsdcMicro(13500*5)), nil, nil, nil, nil, nil, nil, nil).WillReturnRows(orderInsertRows(9, 7, "0xbuyer", 13500*5, krwToUsdcMicro(13500*5), now))
 
 	// 합산된 단일 order_items 행 (qty=5)
 	mock.ExpectExec(`
@@ -272,11 +280,13 @@ func TestCreateOrderZeroPriceFreeOrder(t *testing.T) {
 	`).WithArgs(1, 1).WillReturnRows(prodRows)
 
 	mock.ExpectQuery(`
-		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro)
-		VALUES ($1, $2, 'pending', $3, $4)
+		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro,
+		                    ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip)
+		VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
-	`).WithArgs(7, "0xbuyer", 0, int64(0)).WillReturnRows(orderInsertRows(10, 7, "0xbuyer", 0, 0, now))
+		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		          ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
+	`).WithArgs(7, "0xbuyer", 0, int64(0), nil, nil, nil, nil, nil, nil, nil).WillReturnRows(orderInsertRows(10, 7, "0xbuyer", 0, 0, now))
 	mock.ExpectExec(`
 		INSERT INTO order_items (order_id, product_id, title, price_krw, qty)
 		VALUES ($1, $2, $3, $4, $5)
@@ -337,7 +347,8 @@ func TestVerifyOrderReVerifyPaidIdempotent(t *testing.T) {
 	// Order already paid (status=paid, tx_hash=0xold)
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "paid",
@@ -350,7 +361,8 @@ func TestVerifyOrderReVerifyPaidIdempotent(t *testing.T) {
 	// 응답 오염 방지용 DB 재조회 — 기존 상태 유지
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "paid",

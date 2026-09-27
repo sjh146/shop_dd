@@ -142,6 +142,22 @@ func CreateTables(db *sql.DB) error {
 	}
 	log.Println("Successfully created orders table")
 
+	// orders.ship_* — 미국 배송지 (nullable, 멱등). 기존 주문 행은 NULL로 남고
+	// 응답에서는 Order.Shipping = nil (하위 호환).
+	alterOrdersShippingSQL := `
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_name VARCHAR(120);
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_phone VARCHAR(40);
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_address1 VARCHAR(200);
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_address2 VARCHAR(200);
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_city VARCHAR(120);
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_state VARCHAR(2);
+	ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_zip VARCHAR(10);
+	`
+	if _, err := db.Exec(alterOrdersShippingSQL); err != nil {
+		return fmt.Errorf("failed to add orders shipping columns: %w", err)
+	}
+	log.Println("Successfully ensured orders shipping columns (ship_*)")
+
 	// order_items
 	createOrderItemsSQL := `
 	CREATE TABLE IF NOT EXISTS order_items (

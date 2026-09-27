@@ -37,15 +37,10 @@ func CancelOrder(db *sql.DB) gin.HandlerFunc {
 
 		// 소유권 + 상태 확인 (행 락 — 동시 취소/결제 레이스 방지)
 		var order models.Order
-		err = tx.QueryRow(`
-			SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-			       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		err = scanOrderInto(tx.QueryRow(`
+			SELECT `+orderSelectColumns+`
 			FROM orders WHERE id = $1 FOR UPDATE
-		`, id).Scan(
-			&order.ID, &order.UserID, &order.WalletAddress, &order.Status,
-			&order.TotalKRW, &order.TotalUsdcMicro, &order.GatewayOrderID, &order.TxHash,
-			&order.CreatedAt, &order.UpdatedAt,
-		)
+		`, id), &order)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "order not found"})
 			return

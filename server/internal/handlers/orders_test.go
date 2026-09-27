@@ -62,14 +62,18 @@ func TestCreateOrder(t *testing.T) {
 	orderRows := sqlmock.NewRows([]string{
 		"id", "user_id", "wallet_address", "status", "total_krw", "total_usdc_micro",
 		"gateway_order_id", "tx_hash", "created_at", "updated_at",
+		"ship_name", "ship_phone", "ship_address1", "ship_address2", "ship_city", "ship_state", "ship_zip",
 	}).
-		AddRow(42, 7, "0xabc...", "pending", 27000, 20_000_000, "", "", now, now)
+		AddRow(42, 7, "0xabc...", "pending", 27000, 20_000_000, "", "", now, now,
+			nil, nil, nil, nil, nil, nil, nil)
 	mock.ExpectQuery(`
-		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro)
-		VALUES ($1, $2, 'pending', $3, $4)
+		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro,
+		                    ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip)
+		VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
-	`).WithArgs(7, "0xabc...", 27000, int64(20_000_000)).WillReturnRows(orderRows)
+		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		          ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
+	`).WithArgs(7, "0xabc...", 27000, int64(20_000_000), nil, nil, nil, nil, nil, nil, nil).WillReturnRows(orderRows)
 
 	// ④ order_items insert (같은 트랜잭션).
 	mock.ExpectExec(`
@@ -167,14 +171,18 @@ func TestCreateOrderGatewayDown(t *testing.T) {
 	orderRows := sqlmock.NewRows([]string{
 		"id", "user_id", "wallet_address", "status", "total_krw", "total_usdc_micro",
 		"gateway_order_id", "tx_hash", "created_at", "updated_at",
+		"ship_name", "ship_phone", "ship_address1", "ship_address2", "ship_city", "ship_state", "ship_zip",
 	}).
-		AddRow(43, 7, "0xabc...", "pending", 13500, 10_000_000, "", "", now, now)
+		AddRow(43, 7, "0xabc...", "pending", 13500, 10_000_000, "", "", now, now,
+			nil, nil, nil, nil, nil, nil, nil)
 	mock.ExpectQuery(`
-		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro)
-		VALUES ($1, $2, 'pending', $3, $4)
+		INSERT INTO orders (user_id, wallet_address, status, total_krw, total_usdc_micro,
+		                    ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip)
+		VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
-	`).WithArgs(7, "0xabc...", 13500, int64(10_000_000)).WillReturnRows(orderRows)
+		          COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		          ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
+	`).WithArgs(7, "0xabc...", 13500, int64(10_000_000), nil, nil, nil, nil, nil, nil, nil).WillReturnRows(orderRows)
 
 	mock.ExpectExec(`
 		INSERT INTO order_items (order_id, product_id, title, price_krw, qty)

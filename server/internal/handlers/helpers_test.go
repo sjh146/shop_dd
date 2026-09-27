@@ -2,9 +2,11 @@ package handlers
 
 import "testing"
 
-// TestKRWToUsdcMicro verifies the KRW→USDC micro-unit conversion.
+// TestKRWToUsdcMicro verifies the KRW→USDC micro-unit conversion at cent
+// (0.01 USDC) precision.
 //
-// Formula: micro = round(total_krw / 1350.0) * 1_000_000
+// Formula: cents = round(total_krw / 1350.0 * 100); micro = cents * 10_000
+// (1 USDC = 1_000_000 micro, so 1 cent = 10_000 micro.)
 // Note: Go's math.Round rounds half away from zero, so 0.5 → 1.
 func TestKRWToUsdcMicro(t *testing.T) {
 	cases := []struct {
@@ -12,17 +14,21 @@ func TestKRWToUsdcMicro(t *testing.T) {
 		krw      int
 		expected int64
 	}{
+		// 5900/1350 = 4.3703... → 437 cents → 4.37 USDC (1 USDC 반올림이면 4.0 — 손실)
+		{"cent precision preserved", 5900, 4_370_000},
 		{"exactly one USDC", 1350, 1_000_000},
-		{"exactly two USDC", 2700, 2_000_000},
-		// 675/1350 = 0.5 → math.Round(0.5) = 1 (half away from zero) → 1 USDC
-		{"half USDC rounds up", 675, 1_000_000},
+		// 1350/2 = 675 → 0.5 USDC → 50 cents → 0.50 USDC
+		{"half USDC", 675, 500_000},
+		// 2025/1350 = 1.5 → 150 cents → 1.50 USDC
+		{"one and a half USDC", 2025, 1_500_000},
+		// 100000/1350 = 74.0740... → 7407 cents → 74.07 USDC
+		{"large amount", 100000, 74_070_000},
+		// 2800/1350 = 2.0740... → 207 cents → 2.07 USDC
+		{"two point zero seven USDC", 2800, 2_070_000},
 		{"zero", 0, 0},
-		// 100000/1350 = 74.074... → round = 74 → 74 USDC
-		{"large amount", 100000, 74_000_000},
-		// 1351/1350 = 1.0007 → round = 1 → 1 USDC
+		// 1351/1350 = 1.00074... → 100 cents → 1.00 USDC (센트 미만은 반올림)
 		{"just above one USDC", 1351, 1_000_000},
-		// 2025/1350 = 1.5 → round = 2 → 2 USDC
-		{"one and a half USDC rounds up", 2025, 2_000_000},
+		{"exactly two USDC", 2700, 2_000_000},
 	}
 
 	for _, tc := range cases {

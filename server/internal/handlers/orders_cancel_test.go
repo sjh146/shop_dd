@@ -29,7 +29,8 @@ func TestCancelOrderSuccess(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1 FOR UPDATE
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "registered",
@@ -84,7 +85,8 @@ func TestCancelOrderNonOwner(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1 FOR UPDATE
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 99, WalletAddress: "0xother", Status: "pending",
@@ -123,7 +125,8 @@ func TestCancelOrderPaid(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1 FOR UPDATE
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "paid",
@@ -162,7 +165,8 @@ func TestCancelOrderIdempotent(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`
 		SELECT id, user_id, wallet_address, status, total_krw, total_usdc_micro,
-		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at
+		       COALESCE(gateway_order_id, ''), COALESCE(tx_hash, ''), created_at, updated_at,
+		       ship_name, ship_phone, ship_address1, ship_address2, ship_city, ship_state, ship_zip
 		FROM orders WHERE id = $1 FOR UPDATE
 	`).WithArgs(5).WillReturnRows(orderSelectRows(models.Order{
 		ID: 5, UserID: 7, WalletAddress: "0xbuyer", Status: "cancelled",

@@ -35,6 +35,18 @@ type Product struct {
 	UpdatedAt       time.Time `json:"updatedAt" db:"updated_at"`
 }
 
+// ShippingInfo represents the US shipping address for an order. It is captured
+// before payment so the operator can purchase and ship the physical item.
+type ShippingInfo struct {
+	Name     string `json:"name"`
+	Phone    string `json:"phone"`
+	Address1 string `json:"address1"`
+	Address2 string `json:"address2,omitempty"`
+	City     string `json:"city"`
+	State    string `json:"state"`
+	Zip      string `json:"zip"`
+}
+
 // Order represents a purchase order. id doubles as the gateway reference_id.
 type Order struct {
 	ID              int       `json:"id" db:"id"`
@@ -48,6 +60,9 @@ type Order struct {
 	CreatedAt       time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt       time.Time `json:"updatedAt" db:"updated_at"`
 	Items           []OrderItem `json:"items,omitempty"`
+	// Shipping — 배송지 (선택). 마이그레이션 이전 주문처럼 ship_* 컬럼이 모두
+	// NULL이면 nil이며 JSON에서 생략된다.
+	Shipping *ShippingInfo `json:"shipping,omitempty"`
 }
 
 // OrderItem represents a single line item within an order.
@@ -103,6 +118,8 @@ type MeResponse struct {
 
 type CreateOrderRequest struct {
 	Items []OrderItemRequest `json:"items" binding:"required,min=1"`
+	// Shipping — 미국 배송지 (선택). 없으면(NULL/생략) 기존과 동일하게 동작한다.
+	Shipping *ShippingInfo `json:"shipping"`
 }
 
 type OrderItemRequest struct {

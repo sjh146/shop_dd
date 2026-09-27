@@ -84,8 +84,14 @@ func internalKey(name string) string {
 }
 
 // ── KRW → USDC 변환 ───────────────────────────────────────────────────────
-// micro = round(total_krw / 1350.0) * 1_000_000
+// 1 USDC = 1_000_000 micro (6 decimals). 청구 정밀도는 센트(0.01 USDC = 10_000 micro)까지
+// 보존한다 — 1 USDC 단위로 반올림하면 5900원($4.37어치)을 4 USDC로 받는 손실이 생긴다.
+//
+//	cents = round(total_krw / 1350.0 * 100)
+//	micro = cents * 10_000
+//
+// 예: 5900 → 4.37 USDC → 4_370_000 micro, 675 → 0.50 USDC → 500_000 micro.
 func krwToUsdcMicro(totalKRW int) int64 {
-	usdc := math.Round(float64(totalKRW)/1350.0) * 1_000_000
-	return int64(usdc)
+	cents := math.Round(float64(totalKRW) / 1350.0 * 100)
+	return int64(cents) * 10_000
 }
