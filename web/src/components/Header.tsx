@@ -26,9 +26,6 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
           사이버몰
         </Link>
         <nav className="site-header__nav">
-          <Link to="/" className="site-header__link site-header__link--home">
-            상품
-          </Link>
           <Link to="/orders" className="site-header__link">
             주문내역
           </Link>
