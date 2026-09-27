@@ -23,6 +23,13 @@ const (
 	loginMessageFmt = "shop_dd login (chain %d)\nnonce: %s"
 )
 
+// insertEmailUserSQL — 이메일 가입 INSERT (테스트가 같은 상수를 참조).
+const insertEmailUserSQL = `
+	INSERT INTO users (email, password, name, role, is_wallet_user)
+	VALUES ($1, $2, $3, 'buyer', false)
+	RETURNING id, email, name, role, is_wallet_user, created_at, updated_at
+`
+
 // personalSignHash — EIP-191 개인 서명 메시지 해시
 func personalSignHash(message []byte) []byte {
 	lenStr := itoa(len(message))
@@ -80,11 +87,7 @@ func Register(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var user models.User
-		err = db.QueryRow(`
-			INSERT INTO users (email, password, name, role, is_wallet_user)
-			VALUES ($1, $2, $3, 'buyer', false)
-			RETURNING id, email, name, role, is_wallet_user, created_at, updated_at
-		`, strings.ToLower(req.Email), hashed, req.Name).Scan(
+		err = db.QueryRow(insertEmailUserSQL, strings.ToLower(req.Email), hashed, req.Name).Scan(
 			&user.ID, &user.Email, &user.Name, &user.Role, &user.IsWalletUser,
 			&user.CreatedAt, &user.UpdatedAt,
 		)

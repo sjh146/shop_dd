@@ -73,6 +73,11 @@ func hashPassword(password string) (string, error) {
 	return string(hashed), err
 }
 
+// checkPassword — bcrypt 해시와 평문 비밀번호 비교 (일치하면 nil).
+func checkPassword(hash, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+}
+
 // internalKey — 내부 API 키 (blockchain-gateway 호출용).
 func internalKey(name string) string {
 	return os.Getenv(name)

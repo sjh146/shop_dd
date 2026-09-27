@@ -84,6 +84,23 @@ type WalletAuthResponse struct {
 	User          User   `json:"user"`
 }
 
+// LoginRequest — 이메일/비밀번호 로그인 요청.
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+// LoginResponse — 로그인 성공 응답 (JWT + 사용자).
+type LoginResponse struct {
+	Token string `json:"token"`
+	User  User   `json:"user"`
+}
+
+// MeResponse — 현재 로그인 사용자 응답.
+type MeResponse struct {
+	User User `json:"user"`
+}
+
 type CreateOrderRequest struct {
 	Items []OrderItemRequest `json:"items" binding:"required,min=1"`
 }

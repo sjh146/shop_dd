@@ -27,3 +27,4 @@ contracts/typechain-types/
 .omo/run-continuation/
 .omo/notepads/
 .omo/plans/
+server/shop-server

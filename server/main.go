@@ -51,8 +51,11 @@ func main() {
 		// Auth routes (public)
 		auth := api.Group("/auth")
 		{
+			auth.POST("/register", handlers.Register(db))
+			auth.POST("/login", handlers.Login(db))
 			auth.POST("/nonce", handlers.WalletNonce(db))
 			auth.POST("/verify", handlers.WalletVerify(db))
+			auth.GET("/me", handlers.AuthMiddleware(), handlers.Me(db))
 		}
 
 		// Products routes (public)
