@@ -6,6 +6,7 @@ import {
   verifyOrder,
   getNonce,
   verifySignature,
+  getTokenWallet,
   type Product,
   type CreateOrderResponse
 } from '../lib/api'
@@ -24,13 +25,35 @@ import {
   faucet,
   BASE_SEPOLIA_CHAIN_ID,
   metamaskDeeplink,
-  maybeOpenInMetaMaskApp
+  maybeOpenInMetaMaskApp,
+  getExistingAccount,
+  getAllowance
 } from '../lib/wallet'
 import { usePageTitle } from '../lib/seo'
 
 type Step = 'wallet' | 'auth' | 'order' | 'balance' | 'approve' | 'pay' | 'verify'
 
 const FAUCET_AMOUNT = 100_000_000n // 100 mUSDC
+
+const STEP_LABELS: Record<Step, string> = {
+  wallet: '지갑 연결',
+  auth: '로그인 서명',
+  order: '주문 생성',
+  balance: '잔액 확인',
+  approve: 'USDC 승인',
+  pay: '결제',
+  verify: '결제 확인'
+}
+
+/** 지갑/네트워크 에러를 사용자 문구로 변환 */
+function friendlyWalletError(e: unknown): string {
+  const m = e instanceof Error ? e.message : ''
+  if (/reject|denied|4001/i.test(m)) return 'MetaMask에서 요청을 취소했어요. 다시 시도해 주세요.'
+  if (/insufficient funds/i.test(m)) {
+    return '가스용 Sepolia ETH가 부족해요. 테스트 ETH를 받은 뒤 다시 시도해 주세요.'
+  }
+  return m || '결제 진행 중 문제가 발생했어요. MetaMask 확인창을 눌러주세요.'
+}
 
 export function CheckoutPage() {
   usePageTitle('결제')
@@ -50,6 +73,20 @@ export function CheckoutPage() {
   const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null)
   const [insufficient, setInsufficient] = useState(false)
   const [txHash, setTxHash] = useState<string | null>(null)
+  const [autoRunning, setAutoRunning] = useState(false)
+
+  // 이미 승인된 지갑이면 조용히 복원 (팝업 없음) — 원클릭 결제의 확인창을 줄인다
+  useEffect(() => {
+    let cancelled = false
+    getExistingAccount().then((acc) => {
+      if (cancelled || !acc) return
+      setAddress(acc)
+      setStep(getTokenWallet()?.toLowerCase() === acc.toLowerCase() ? 'order' : 'auth')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     getProducts()
@@ -283,6 +320,121 @@ export function CheckoutPage() {
     }
   }
 
+  /**
+   * 한 번에 결제 — 지갑 연결 → 로그인 → 주문 생성 → 잔액(부족 시 자동 faucet)
+   * → 승인(allowance 충분하면 생략) → 결제 → 확인 폴링까지 자동 진행.
+   * 사용자는 MetaMask 확인창만 누르면 된다.
+   */
+  const autoPay = async () => {
+    setError(null)
+    setAutoRunning(true)
+    setBusy(true)
+    try {
+      // ① 지갑 연결 (이미 연결돼 있으면 생략)
+      let addr = address
+      if (!addr) {
+        if (maybeOpenInMetaMaskApp()) {
+          setError('MetaMask 앱으로 이동 중… 앱이 열리면 "한 번에 결제하기"를 다시 눌러주세요.')
+          return
+        }
+        if (!(await hasEthereum())) {
+          setError('지갑을 찾지 못했어요. 모바일은 MetaMask 앱에서, 데스크톱은 확장 설치 후 다시 시도해 주세요.')
+          return
+        }
+        addr = await connect()
+        setAddress(addr)
+        try {
+          const chainId = await getChainId()
+          if (chainId !== BASE_SEPOLIA_CHAIN_ID) await switchToBaseSepolia()
+        } catch {
+          // 전환은 아래 단계에서 실패 시 개별 안내
+        }
+      }
+      setWrongNetwork(false)
+
+      // ② 로그인 — 같은 지갑의 토큰이 이미 있으면 서명 생략
+      setStep('auth')
+      if (getTokenWallet()?.toLowerCase() !== addr.toLowerCase()) {
+        const nonceRes = await getNonce(addr)
+        const signature = await signMessage(nonceRes.message, addr as `0x${string}`)
+        const authRes = await verifySignature(addr, signature, nonceRes.nonce)
+        adoptAuth(authRes)
+      }
+
+      // ③ 주문 생성 (서버사이드 — 지갑 팝업 없음)
+      setStep('order')
+      let resp = orderResp
+      if (!resp) {
+        resp = await createOrder(items.map((i) => ({ productId: i.productId, qty: i.qty })))
+        setOrderResp(resp)
+      }
+
+      // ④ 잔액 확인 — 부족하면 테스트넷 자동 faucet (팝업 없음, 가스 필요)
+      setStep('balance')
+      const needed = BigInt(resp.amount_usdc_micro)
+      let balance = await getUsdcBalance(resp.usdc_token, addr as `0x${string}`)
+      setUsdcBalance(balance)
+      if (balance < needed) {
+        setInsufficient(true)
+        try {
+          await faucet(resp.usdc_token, addr as `0x${string}`, FAUCET_AMOUNT)
+          balance = await getUsdcBalance(resp.usdc_token, addr as `0x${string}`)
+          setUsdcBalance(balance)
+        } catch {
+          // 자동 faucet 실패 — 아래 안내로
+        }
+        if (balance < needed) {
+          setError('테스트 USDC가 부족해요. 지갑에 가스용 Sepolia ETH가 있는지 확인한 뒤 테스트 USDC 받기를 눌러주세요.')
+          return
+        }
+        setInsufficient(false)
+      }
+
+      // ⑤ 승인 — allowance가 이미 충분하면 MetaMask 팝업 생략
+      setStep('approve')
+      const allowance = await getAllowance(
+        resp.usdc_token as `0x${string}`,
+        addr as `0x${string}`,
+        resp.contract_address as `0x${string}`
+      )
+      if (allowance < needed) {
+        await approve(resp.usdc_token, resp.contract_address, needed, addr as `0x${string}`)
+      }
+
+      // ⑥ 결제
+      setStep('pay')
+      const hash = await pay(
+        resp.contract_address,
+        resp.gateway_order_id,
+        needed,
+        addr as `0x${string}`
+      )
+      setTxHash(hash)
+
+      // ⑦ 결제 확인 자동 폴링 (최대 ~45초)
+      setStep('verify')
+      for (let i = 0; i < 15; i++) {
+        try {
+          const res = await verifyOrder(resp.order_id)
+          if (!res.verifyError) {
+            clear()
+            navigate(`/orders/${resp.order_id}`)
+            return
+          }
+        } catch {
+          // 일시 오류 — 계속 폴링
+        }
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+      setError('결제 확인이 지연되고 있어요. 주문내역에서 상태를 확인해 주세요.')
+    } catch (e) {
+      setError(friendlyWalletError(e))
+    } finally {
+      setBusy(false)
+      setAutoRunning(false)
+    }
+  }
+
   const usdcDisplay = orderResp
     ? (Number(orderResp.amount_usdc_micro) / 1_000_000).toFixed(6)
     : null
@@ -293,6 +445,21 @@ export function CheckoutPage() {
       <p className="page-sub">결제 수단: USDC (Base Sepolia 테스트넷)</p>
 
       {error ? <div className="notice notice--error" role="alert">{error}</div> : null}
+
+      <div className="checkout-auto">
+        <button
+          className="btn btn--primary btn--block"
+          onClick={autoPay}
+          disabled={autoRunning || busy}
+          data-testid="oneclick-pay"
+        >
+          {autoRunning ? `진행 중… (${STEP_LABELS[step]})` : '한 번에 결제하기'}
+        </button>
+        <p className="checkout-auto__hint">
+          지갑 연결 → 로그인 서명 → 주문 생성 → USDC 승인 → 결제 → 확인을 자동으로 진행해요.
+          MetaMask 확인창만 눌러주세요. (이미 연결·로그인돼 있으면 확인창이 더 줄어들어요)
+        </p>
+      </div>
 
       <div className="checkout-steps" data-testid="checkout-steps" data-current-step={step}>
         {/* 1. Wallet connect */}

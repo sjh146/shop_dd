@@ -54,6 +54,33 @@ export function maybeOpenInMetaMaskApp(): boolean {
   return true
 }
 
+/** 이미 승인된 계정을 조용히 반환 (eth_accounts — 팝업 없음). 없으면 null. */
+export async function getExistingAccount(): Promise<Address | null> {
+  const provider = extensionProvider()
+  if (!provider) return null
+  try {
+    const accounts = (await provider.request({ method: 'eth_accounts' })) as Address[]
+    return accounts[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+/** USDC allowance 조회 — approve를 생략할 수 있는지 판단용 */
+export async function getAllowance(
+  token: Address,
+  owner: Address,
+  spender: Address
+): Promise<bigint> {
+  const result = await getPublicClient().readContract({
+    address: token,
+    abi: mockUsdcAbi,
+    functionName: 'allowance',
+    args: [owner, spender]
+  })
+  return result as bigint
+}
+
 export const baseSepolia: Chain = {
   id: 84532,
   name: 'Base Sepolia',
@@ -94,6 +121,16 @@ const mockUsdcAbi = [
       { name: 'amount', type: 'uint256' }
     ],
     outputs: []
+  },
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' }
+    ],
+    outputs: [{ name: '', type: 'uint256' }]
   }
 ] as const
 

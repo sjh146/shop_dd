@@ -14,6 +14,24 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+/**
+ * 저장된 JWT의 walletAddress 클레임 — UX 판단용(재로그인 생략 여부).
+ * 서명·검증의 신뢰는 서버(AuthMiddleware)가 담당한다.
+ */
+export function getTokenWallet(): string | null {
+  const token = getToken()
+  if (!token) return null
+  try {
+    const part = token.split('.')[1] ?? ''
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+    const payload = JSON.parse(atob(padded)) as { walletAddress?: string }
+    return payload.walletAddress || null
+  } catch {
+    return null
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
