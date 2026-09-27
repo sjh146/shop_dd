@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
 
-# 사이버몰 — MetaMask 전용 USDC 결제 테스트넷 쇼핑몰
-# AI 에이전트용 기계 판독 요약: /llms.txt
+# Seoul Crate — Korean everyday essentials shipped to U.S. addresses.
+# Checkout is MetaMask-only (USDC on Base Sepolia, testnet demo).
+# Machine-readable summary for AI agents: /llms.txt

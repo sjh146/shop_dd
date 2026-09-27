@@ -1,5 +1,6 @@
-// viem 2.21.55 wallet helpers — 데스크톱 확장(window.ethereum) + WalletConnect QR(모바일).
-// MetaMask SDK는 응답 중계 유실 문제(서명 후 웹 미반영)로 제거 — 표준 WalletConnect 경로 사용.
+// viem wallet helpers — desktop extension (window.ethereum) + WalletConnect QR (mobile).
+// The MetaMask SDK relay was removed earlier (lost responses after signing); the standard
+// WalletConnect path is used instead.
 import { EthereumProvider } from '@walletconnect/ethereum-provider'
 import {
   createWalletClient,
@@ -12,8 +13,12 @@ import {
   type PublicClient,
   type WalletClient
 } from 'viem'
+import { BRAND, BRAND_DESCRIPTION, CHAIN_ID, CHAIN_NAME, EXPLORER_URL, TESTNET } from './config'
 
-// WalletConnect Cloud 프로젝트 ID (https://cloud.walletconnect.com 에서 생성 — 공개용 클라이언트 ID)
+// Re-exported so wallet consumers can import the chain constants from one place
+export { CHAIN_ID, CHAIN_NAME }
+
+// WalletConnect Cloud project ID (create one at https://cloud.walletconnect.com — public client ID)
 const WALLETCONNECT_PROJECT_ID = 'PENDING_USER_PROJECT_ID'
 
 declare global {
@@ -22,29 +27,39 @@ declare global {
   }
 }
 
-export const BASE_SEPOLIA_CHAIN_ID = 84532
+/** Payment chain (Base Sepolia while TESTNET, Base mainnet when live). */
+export const paymentChain: Chain = {
+  id: CHAIN_ID,
+  name: CHAIN_NAME,
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: [TESTNET ? 'https://sepolia.base.org' : 'https://mainnet.base.org'] }
+  },
+  blockExplorers: {
+    default: { name: 'BaseScan', url: EXPLORER_URL }
+  }
+}
 
 /**
- * MetaMask 모바일 앱의 내장 브라우저로 이 페이지를 여는 공식 딥링크.
- * 앱 하단 "탐색(Explore)" 탭 → 브라우저 아이콘 경로를 대신해 준다.
- * (metamask-docs: "Open a dapp in the in-app browser")
+ * Official deep link that opens this page inside the MetaMask mobile in-app browser
+ * (instead of asking the user to find Explore → Browser).
  */
 export function metamaskDeeplink(): string {
   const host = typeof window !== 'undefined' ? window.location.host : ''
   return `https://link.metamask.io/dapp/${host}`
 }
 
-/** 모바일 브라우저(안드로이드/iOS) 여부 */
+/** Mobile browser (Android/iOS)? */
 export function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false
   return /android|iphone|ipad|ipod/i.test(navigator.userAgent)
 }
 
 /**
- * 지갑 연결 시도용: 주입된 지갑(확장/앱 브라우저)이 없고 모바일 브라우저면
- * MetaMask 앱 내장 브라우저로 자동 이동한다. 이동을 시작했으면 true.
- * 동기 체크 — 클릭 제스처를 유지해야 유니버설 링크가 확실히 열린다.
- * (WalletConnect가 projectId를 받아 활성화되면 그 경로를 우선 시도하도록 바꿀 것)
+ * When there is no injected wallet and we are on a mobile browser, hand the user off to
+ * the MetaMask in-app browser. Returns true when navigation started.
+ * Synchronous check — universal links only open inside a click gesture.
+ * (Once a WalletConnect projectId is configured, prefer that path instead.)
  */
 export function maybeOpenInMetaMaskApp(): boolean {
   if (typeof window === 'undefined') return false
@@ -54,7 +69,7 @@ export function maybeOpenInMetaMaskApp(): boolean {
   return true
 }
 
-/** 이미 승인된 계정을 조용히 반환 (eth_accounts — 팝업 없음). 없으면 null. */
+/** Already-authorised account, silently (eth_accounts — no popup). null when none. */
 export async function getExistingAccount(): Promise<Address | null> {
   const provider = extensionProvider()
   if (!provider) return null
@@ -66,7 +81,7 @@ export async function getExistingAccount(): Promise<Address | null> {
   }
 }
 
-/** USDC allowance 조회 — approve를 생략할 수 있는지 판단용 */
+/** USDC allowance — lets checkout skip the approve step when it is already sufficient. */
 export async function getAllowance(
   token: Address,
   owner: Address,
@@ -74,27 +89,15 @@ export async function getAllowance(
 ): Promise<bigint> {
   const result = await getPublicClient().readContract({
     address: token,
-    abi: mockUsdcAbi,
+    abi: erc20Abi,
     functionName: 'allowance',
     args: [owner, spender]
   })
   return result as bigint
 }
 
-export const baseSepolia: Chain = {
-  id: 84532,
-  name: 'Base Sepolia',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://sepolia.base.org'] }
-  },
-  blockExplorers: {
-    default: { name: 'BaseScan', url: 'https://sepolia.basescan.org' }
-  }
-}
-
-// Minimal ABIs (only the functions we call).
-const mockUsdcAbi = [
+// Minimal ABIs (only the functions we call). USDC and the mock token share the ERC-20 subset.
+const erc20Abi = [
   {
     type: 'function',
     name: 'approve',
@@ -145,7 +148,7 @@ const shopPaymentAbi = [
     ],
     outputs: []
   },
-  // 커스텀 에러 — 사전 시뮬레이션에서 revert 이름을 디코딩하기 위해 필요
+  // Custom errors — needed to decode the revert reason in pre-flight simulation
   { type: 'error', name: 'OrderNotRegistered', inputs: [{ name: 'orderId', type: 'uint256' }] },
   { type: 'error', name: 'NotOrderPayer', inputs: [{ name: 'orderId', type: 'uint256' }] },
   {
@@ -165,18 +168,18 @@ function extensionProvider(): EIP1193Provider | null {
   return (window.ethereum as EIP1193Provider | undefined) ?? null
 }
 
-// WalletConnect 프로바이더 (모바일 QR). showQrModal로 QR 모달 자동 표시.
+// WalletConnect provider (mobile QR) — showQrModal renders the QR sheet.
 async function getWcProvider(): Promise<EIP1193Provider | null> {
   if (wcProvider) return wcProvider
   if (!wcInitPromise) {
     wcInitPromise = EthereumProvider.init({
       projectId: WALLETCONNECT_PROJECT_ID,
       showQrModal: true,
-      chains: [BASE_SEPOLIA_CHAIN_ID],
-      rpcMap: { [BASE_SEPOLIA_CHAIN_ID]: 'https://sepolia.base.org' },
+      chains: [CHAIN_ID],
+      rpcMap: { [CHAIN_ID]: paymentChain.rpcUrls.default.http[0] },
       metadata: {
-        name: '사이버몰',
-        description: '알리익스프레스 직배송 상품을 USDC로 결제하는 테스트넷 직구 상점',
+        name: BRAND,
+        description: BRAND_DESCRIPTION,
         url: typeof window !== 'undefined' ? window.location.origin : '',
         icons: []
       }
@@ -186,14 +189,14 @@ async function getWcProvider(): Promise<EIP1193Provider | null> {
         return wcProvider
       })
       .catch((e) => {
-        console.error('[wallet] WalletConnect init 실패 (projectId 확인):', e)
+        console.error('[wallet] WalletConnect init failed (check projectId):', e)
         return null
       })
   }
   return wcInitPromise
 }
 
-// 활성 프로바이더 결정: 확장 프로그램 우선, 없으면 WalletConnect(모바일 QR).
+// Pick the active provider: injected extension first, WalletConnect QR otherwise.
 async function resolveProvider(): Promise<EIP1193Provider | null> {
   const ext = extensionProvider()
   if (ext) return ext
@@ -203,7 +206,7 @@ async function resolveProvider(): Promise<EIP1193Provider | null> {
 function getPublicClient(): PublicClient {
   if (!publicClient) {
     publicClient = createPublicClient({
-      chain: baseSepolia,
+      chain: paymentChain,
       transport: http()
     })
   }
@@ -212,14 +215,14 @@ function getPublicClient(): PublicClient {
 
 function makeWalletClient(provider: EIP1193Provider): WalletClient {
   return createWalletClient({
-    chain: baseSepolia,
+    chain: paymentChain,
     transport: custom(provider)
   })
 }
 
 export async function hasEthereum(): Promise<boolean> {
   if (typeof window === 'undefined') return false
-  // 확장 프로그램 또는 WalletConnect(모바일) 경로 가능 여부
+  // Injected extension or the WalletConnect (mobile) path
   if (extensionProvider()) return true
   return Boolean(await getWcProvider())
 }
@@ -227,10 +230,10 @@ export async function hasEthereum(): Promise<boolean> {
 export async function connect(): Promise<Address> {
   const provider = await resolveProvider()
   if (!provider) {
-    throw new Error('지갑 연결을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    throw new Error('Could not initialise a wallet connection. Please try again in a moment.')
   }
   activeProvider = provider
-  // eth_requestAccounts: 확장 팝업 / WalletConnect QR 모달 표시
+  // eth_requestAccounts: extension popup / WalletConnect QR sheet
   const accounts = (await provider.request({
     method: 'eth_requestAccounts'
   })) as Address[]
@@ -248,32 +251,33 @@ export async function getChainId(): Promise<number> {
   return Number.parseInt(chainIdHex, 16)
 }
 
-export async function switchToBaseSepolia(): Promise<boolean> {
+/** Switch (or add) the payment network. Re-checks the live chain before reporting success. */
+export async function switchToPaymentChain(): Promise<boolean> {
   const provider = activeProvider ?? (await resolveProvider())
   if (!provider) throw new Error('no-wallet-provider')
   const client = makeWalletClient(provider)
   try {
-    await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
+    await client.switchChain({ id: CHAIN_ID })
   } catch (err) {
     const e = err as { code?: number }
     if (e && e.code === 4902) {
       try {
-        await client.addChain({ chain: baseSepolia })
-        await client.switchChain({ id: BASE_SEPOLIA_CHAIN_ID })
+        await client.addChain({ chain: paymentChain })
+        await client.switchChain({ id: CHAIN_ID })
       } catch {
-        // 앱에서 이미 추가/전환됐을 수 있음 — 아래에서 실제 체인 재확인
+        // The app may have added/switched already — verified below
       }
     }
   }
-  // 실제 체인 재확인 (전환 반영 대기) — MetaMask가 "전환됨"을 표시하면 여기서 잡힘
+  // Re-read the live chain (MetaMask may still be applying the switch)
   for (let i = 0; i < 6; i++) {
     try {
       const chainIdHex = (await provider.request({ method: 'eth_chainId' })) as string
-      if (Number.parseInt(chainIdHex, 16) === BASE_SEPOLIA_CHAIN_ID) {
+      if (Number.parseInt(chainIdHex, 16) === CHAIN_ID) {
         return true
       }
     } catch {
-      // 일시적 오류 — 재시도
+      // transient — retry
     }
     await new Promise((r) => setTimeout(r, 500))
   }
@@ -285,11 +289,11 @@ export async function signMessage(message: string, account: Address): Promise<st
   if (!provider) {
     throw new Error('no-wallet-provider')
   }
-  // 60초 타임아웃: 모바일 앱 서명 대기. 무한 대기 방지
+  // 60s timeout: mobile app signing can be slow, but never hang forever.
   const timeout = new Promise<never>((_, rej) =>
-    setTimeout(() => rej(new Error('서명 요청이 시간 초과됐어요. MetaMask 앱을 확인해 주세요.')), 60_000)
+    setTimeout(() => rej(new Error('The signature request timed out. Please check the MetaMask app.')), 60_000)
   )
-  // viem의 EIP1193Provider request 유니온 타입에 personal_sign이 없어 느슨하게 호출
+  // viem's EIP1193Provider request union lacks personal_sign — call it loosely
   const loose = provider as unknown as {
     request(args: { method: string; params?: unknown[] | Record<string, unknown> }): Promise<unknown>
   }
@@ -303,21 +307,18 @@ export async function signMessage(message: string, account: Address): Promise<st
   return sig
 }
 
-export async function getUsdcBalance(
-  usdcToken: string,
-  address: Address
-): Promise<bigint> {
+export async function getUsdcBalance(usdcToken: string, address: Address): Promise<bigint> {
   const client = getPublicClient()
   const result = await client.readContract({
     address: usdcToken as Address,
-    abi: mockUsdcAbi,
+    abi: erc20Abi,
     functionName: 'balanceOf',
     args: [address]
   })
   return result as bigint
 }
 
-/** viem 컨트랙트 에러에서 revert 이름 추출 — UI 한국어 매핑이 잡을 수 있는 형태로 */
+/** Pull a revert name out of a viem contract error so the UI can map it to a message. */
 function contractErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
   for (const name of ['OrderNotRegistered', 'NotOrderPayer', 'AmountMismatch', 'OrderAlreadyPaid']) {
@@ -336,17 +337,17 @@ export async function approve(
   if (!provider) throw new Error('no-wallet-provider')
   const client = makeWalletClient(provider)
   const hash = await client.writeContract({
-    chain: baseSepolia,
+    chain: paymentChain,
     address: usdcToken as Address,
-    abi: mockUsdcAbi,
+    abi: erc20Abi,
     functionName: 'approve',
     args: [contractAddress as Address, amountMicro],
     account
   })
-  // 온체인 반영까지 대기 — revert를 조용히 성공 처리하지 않는다
+  // Wait for the on-chain result — never treat a submitted tx as success
   const receipt = await getPublicClient().waitForTransactionReceipt({ hash, timeout: 120_000 })
   if (receipt.status !== 'success') {
-    throw new Error('USDC 승인 트랜잭션이 온체인에서 실패(revert)했어요. 다시 시도해 주세요.')
+    throw new Error('The USDC approval reverted on-chain. Please try again.')
   }
   return hash
 }
@@ -360,10 +361,11 @@ export async function pay(
   const provider = activeProvider ?? (await resolveProvider())
   if (!provider) throw new Error('no-wallet-provider')
   const client = makeWalletClient(provider)
-  // 사전 시뮬레이션 — 미등록/중복결제/금액불일치 revert를 MetaMask 팝업·가스 낭비 없이 먼저 감지
+  // Pre-flight simulation — catches unregistered / already-paid / amount-mismatch reverts
+  // before the MetaMask popup and before any gas is spent
   try {
     await getPublicClient().simulateContract({
-      chain: baseSepolia,
+      chain: paymentChain,
       address: contractAddress as Address,
       abi: shopPaymentAbi,
       functionName: 'pay',
@@ -374,21 +376,21 @@ export async function pay(
     throw new Error(contractErrorMessage(err))
   }
   const hash = await client.writeContract({
-    chain: baseSepolia,
+    chain: paymentChain,
     address: contractAddress as Address,
     abi: shopPaymentAbi,
     functionName: 'pay',
     args: [BigInt(gatewayOrderId), amountMicro],
     account
   })
-  // 온체인 반영까지 대기 — revert를 조용히 성공 처리하지 않는다
   const receipt = await getPublicClient().waitForTransactionReceipt({ hash, timeout: 120_000 })
   if (receipt.status !== 'success') {
-    throw new Error('결제 트랜잭션이 온체인에서 실패(revert)했어요. 주문내역에서 상태를 확인해 주세요.')
+    throw new Error('The payment reverted on-chain. Please check your order history for the status.')
   }
   return hash
 }
 
+/** Testnet only — mints test USDC so the demo flow works end to end. */
 export async function faucet(
   usdcToken: string,
   address: Address,
@@ -398,9 +400,9 @@ export async function faucet(
   if (!provider) throw new Error('no-wallet-provider')
   const client = makeWalletClient(provider)
   const hash = await client.writeContract({
-    chain: baseSepolia,
+    chain: paymentChain,
     address: usdcToken as Address,
-    abi: mockUsdcAbi,
+    abi: erc20Abi,
     functionName: 'faucet',
     args: [address, amountMicro],
     account: address

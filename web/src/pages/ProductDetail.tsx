@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getProduct, type Product } from '../lib/api'
 import { useCart } from '../lib/cart'
-import { formatKRW, discountPct } from '../components/ProductCard'
+import { ProductImage } from '../components/ProductCard'
+import { discountPct, formatUSD, usdCentsFromKrw } from '../lib/format'
 import { JsonLd, usePageTitle } from '../lib/seo'
+import { CHAIN_NAME, SHIPPING_COST_NOTE, TESTNET } from '../lib/config'
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>()
@@ -27,7 +29,7 @@ export function ProductDetail() {
         if (!cancelled) setProduct(p)
       })
       .catch(() => {
-        if (!cancelled) setError('상품을 찾지 못했어요.')
+        if (!cancelled) setError('We could not find that product.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -40,7 +42,7 @@ export function ProductDetail() {
   if (loading) {
     return (
       <div className="container page">
-        <div className="loading">불러오는 중…</div>
+        <div className="loading">Loading…</div>
       </div>
     )
   }
@@ -48,7 +50,10 @@ export function ProductDetail() {
   if (error || !product) {
     return (
       <div className="container page">
-        <div className="notice notice--error">{error ?? '상품을 찾지 못했어요.'}</div>
+        <div className="notice notice--error">{error ?? 'We could not find that product.'}</div>
+        <Link to="/" className="text-link">
+          Back to shop
+        </Link>
       </div>
     )
   }
@@ -56,11 +61,17 @@ export function ProductDetail() {
   const pct = discountPct(product)
   const sale = product.salePriceKrw ?? 0
   const orig = product.originalPriceKrw ?? 0
+  const usdCents = usdCentsFromKrw(sale)
 
   const handleAdd = () => {
     addItem(product.id, qty)
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
+  }
+
+  const handleBuyNow = () => {
+    addItem(product.id, qty)
+    navigate('/checkout')
   }
 
   return (
@@ -78,8 +89,8 @@ export function ProductDetail() {
             ? {
                 offers: {
                   '@type': 'Offer',
-                  price: sale,
-                  priceCurrency: 'KRW',
+                  price: (usdCents / 100).toFixed(2),
+                  priceCurrency: 'USD',
                   availability:
                     product.stock > 0
                       ? 'https://schema.org/InStock'
@@ -89,57 +100,61 @@ export function ProductDetail() {
             : {})
         }}
       />
+
+      <Link to="/" className="breadcrumb" data-testid="back-to-shop">
+        ← Back to shop
+      </Link>
+
       <div className="detail">
         <div className="detail__image-wrap">
-          {product.imageUrl ? (
-            <img
-              className="detail__image"
-              src={product.imageUrl}
-              alt={product.title}
-              onError={(e) => {
-                const img = e.currentTarget
-                img.style.display = 'none'
-                const fallback = img.nextElementSibling as HTMLElement | null
-                if (fallback) fallback.style.display = 'flex'
-              }}
-            />
-          ) : null}
-          <div
-            className="product-card__image-fallback"
-            style={{ display: product.imageUrl ? 'none' : 'flex' }}
-          >
-            이미지 준비 중
-          </div>
+          <ProductImage
+            src={product.imageUrl}
+            alt={product.title}
+            className="detail__image"
+            fallbackClassName="product-card__image-fallback"
+            eager
+          />
         </div>
 
         <div className="detail__info">
-          <h1 className="detail__title" data-testid="product-title">{product.title}</h1>
-          {product.description ? (
-            <p className="detail__desc">{product.description}</p>
-          ) : null}
+          <h1 className="detail__title" data-testid="product-title">
+            {product.title}
+          </h1>
+          {product.description ? <p className="detail__desc">{product.description}</p> : null}
 
           <div
             className="price-block"
             data-testid="product-price"
-            data-sale-price-krw={sale}
+            data-price-usd-cents={usdCents}
             data-stock={product.stock}
           >
-            {pct !== null ? <span className="price-pct">{pct}%</span> : null}
-            <span className="price-sale">{formatKRW(sale)}</span>
-            {orig > 0 ? <span className="price-original">{formatKRW(orig)}</span> : null}
+            {pct !== null ? <span className="price-pct">{pct}% off</span> : null}
+            <span className="price-sale">{formatUSD(sale)}</span>
+            {orig > 0 ? <span className="price-original">{formatUSD(orig)}</span> : null}
           </div>
+          {sale > 0 ? (
+            <span className="price-usdc" data-testid="price-usdc">
+              Settled as {(usdCents / 100).toFixed(2)} USDC on {CHAIN_NAME}
+              {TESTNET ? ' (test network)' : ''} at checkout.
+            </span>
+          ) : null}
 
-          <p className="detail__stock" data-testid="product-stock">
-            재고 {product.stock > 0 ? `${product.stock}개` : '품절'}
+          <p
+            className={`detail__stock${product.stock > 0 ? '' : ' detail__stock--out'}`}
+            data-testid="product-stock"
+          >
+            {product.stock > 0
+              ? `In stock — ships from Seoul (${product.stock} available)`
+              : 'Sold out'}
           </p>
 
           <div className="qty-row">
-            <span className="qty-label">수량</span>
+            <span className="qty-label">Quantity</span>
             <div className="qty-control">
               <button
                 type="button"
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
-                aria-label="수량 줄이기"
+                aria-label="Decrease quantity"
                 data-testid="qty-decrease"
               >
                 −
@@ -148,7 +163,7 @@ export function ProductDetail() {
               <button
                 type="button"
                 onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
-                aria-label="수량 늘리기"
+                aria-label="Increase quantity"
                 data-testid="qty-increase"
               >
                 +
@@ -156,20 +171,30 @@ export function ProductDetail() {
             </div>
           </div>
 
-          <div className="mt-8">
+          <div className="buy-row">
             <button
-              className="btn btn--primary btn--block"
+              className="btn btn--primary"
               onClick={handleAdd}
               disabled={product.stock <= 0}
               data-testid="add-to-cart"
             >
-              {added ? '장바구니에 담았어요' : '장바구니 담기'}
+              {added ? 'Added to cart ✓' : 'Add to cart'}
+            </button>
+            <button
+              className="btn btn--secondary"
+              onClick={handleBuyNow}
+              disabled={product.stock <= 0}
+              data-testid="buy-now"
+            >
+              Buy now
             </button>
           </div>
 
-          <button type="button" className="text-link" onClick={() => navigate('/cart')}>
-            장바구니로 이동
-          </button>
+          <ul className="info-list" style={{ marginTop: 4 }}>
+            <li>{SHIPPING_COST_NOTE}</li>
+            <li>Delivery usually takes 7–14 business days.</li>
+            <li>Paid in USDC from your MetaMask wallet — no card needed.</li>
+          </ul>
         </div>
       </div>
     </div>

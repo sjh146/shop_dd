@@ -4,7 +4,7 @@ import { useAuth, friendlyAuthError } from '../lib/auth'
 import { usePageTitle } from '../lib/seo'
 
 export function SignupPage() {
-  usePageTitle('회원가입')
+  usePageTitle('Create account')
   const { signup } = useAuth()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -31,8 +31,10 @@ export function SignupPage() {
     <div className="container page">
       <form className="auth-card" onSubmit={handleSubmit} data-testid="signup-form">
         <div>
-          <h1 className="auth-card__title">회원가입</h1>
-          <p className="auth-card__sub">이메일로 가입하고 주문 내역을 관리하세요.</p>
+          <h1 className="auth-card__title">Create account</h1>
+          <p className="auth-card__sub">
+            Optional — but an account keeps your order history and shipping addresses in one place.
+          </p>
         </div>
 
         {error ? (
@@ -42,14 +44,14 @@ export function SignupPage() {
         ) : null}
 
         <label className="form-field">
-          <span className="form-field__label">이름</span>
+          <span className="form-field__label">Name</span>
           <input
             className="input"
             type="text"
             name="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="홍길동"
+            placeholder="Alex Kim"
             autoComplete="name"
             required
             data-testid="name-input"
@@ -57,7 +59,7 @@ export function SignupPage() {
         </label>
 
         <label className="form-field">
-          <span className="form-field__label">이메일</span>
+          <span className="form-field__label">Email</span>
           <input
             className="input"
             type="email"
@@ -72,30 +74,35 @@ export function SignupPage() {
         </label>
 
         <label className="form-field">
-          <span className="form-field__label">비밀번호</span>
+          <span className="form-field__label">Password</span>
           <input
             className="input"
             type="password"
             name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="8자 이상"
+            placeholder="At least 8 characters"
             autoComplete="new-password"
             minLength={8}
             required
             data-testid="password-input"
           />
-          <span className="auth-card__hint">8자 이상 입력해 주세요.</span>
+          <span className="auth-card__hint">Use at least 8 characters.</span>
         </label>
 
-        <button className="btn btn--primary btn--block" type="submit" disabled={busy} data-testid="signup-submit">
-          {busy ? '가입 중…' : '회원가입'}
+        <button
+          className="btn btn--primary btn--block"
+          type="submit"
+          disabled={busy}
+          data-testid="signup-submit"
+        >
+          {busy ? 'Creating…' : 'Create account'}
         </button>
 
         <p className="auth-card__foot">
-          이미 계정이 있나요?{' '}
+          Already have an account?{' '}
           <Link to="/login" className="text-link">
-            로그인
+            Log in
           </Link>
         </p>
       </form>

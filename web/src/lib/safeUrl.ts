@@ -1,9 +1,9 @@
-// 외부 링크 안전 검증 (CWE-79: javascript:/data:/프로토콜 상대 URL 차단)
-// 기준 없이 절대 URL로만 파싱 — 프로토콜 상대(//evil.com)와 스킴 주입을 모두 거부.
+// External link safety check (CWE-79: blocks javascript:, data: and protocol-relative URLs).
+// Parses as an absolute URL with no base — rejects protocol-relative (//evil.com) and scheme injection.
 export function isSafeExternalUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   try {
-    // base 없이 파싱 → javascript:alert(1), //evil.com 등이 여기서 걸림
+    // Parsing without a base rejects javascript:alert(1), //evil.com and similar payloads here.
     const parsed = new URL(url);
     return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {

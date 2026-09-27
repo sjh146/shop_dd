@@ -1,4 +1,4 @@
-// API wrapper for shop_dd backend. JWT stored in localStorage.
+// API wrapper for the shop_dd backend. JWT is stored in localStorage.
 
 const TOKEN_KEY = 'shop_dd_token'
 
@@ -15,8 +15,8 @@ export function clearToken(): void {
 }
 
 /**
- * 저장된 JWT의 walletAddress 클레임 — UX 판단용(재로그인 생략 여부).
- * 서명·검증의 신뢰는 서버(AuthMiddleware)가 담당한다.
+ * walletAddress claim from the stored JWT — a UX hint only (whether we can skip signing in
+ * again). Actual signature trust lives on the server (AuthMiddleware).
  */
 export function getTokenWallet(): string | null {
   const token = getToken()
@@ -87,6 +87,17 @@ export interface OrderItem {
   qty: number
 }
 
+/** U.S. delivery address collected at checkout (operator ships the Korean order to it). */
+export interface ShippingInfo {
+  name: string
+  phone: string
+  address1: string
+  address2?: string
+  city: string
+  state: string
+  zip: string
+}
+
 export interface Order {
   id: number
   userId: number
@@ -96,6 +107,7 @@ export interface Order {
   totalUsdcMicro: number
   gatewayOrderId?: string
   txHash?: string
+  shipping?: ShippingInfo
   createdAt: string
   updatedAt: string
   items?: OrderItem[]
@@ -193,12 +205,17 @@ export function getProduct(id: number): Promise<Product> {
 
 // ── Orders (JWT) ──────────────────────────────────────────────────────────
 
+/**
+ * Creates an order. `shipping` is optional at the API level (older clients omit it) but the
+ * checkout UI always sends it — it is how we know where to send the parcel.
+ */
 export function createOrder(
-  items: { productId: number; qty: number }[]
+  items: { productId: number; qty: number }[],
+  shipping?: ShippingInfo
 ): Promise<CreateOrderResponse> {
   return request<CreateOrderResponse>('/api/orders', {
     method: 'POST',
-    body: JSON.stringify({ items })
+    body: JSON.stringify(shipping ? { items, shipping } : { items })
   })
 }
 

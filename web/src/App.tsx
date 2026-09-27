@@ -11,12 +11,13 @@ import { OrderDetailPage } from './pages/OrderDetailPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { AuthProvider } from './lib/auth'
+import { TESTNET, TESTNET_NOTICE } from './lib/config'
 import {
   connect,
   hasEthereum,
   getChainId,
-  switchToBaseSepolia,
-  BASE_SEPOLIA_CHAIN_ID,
+  switchToPaymentChain,
+  CHAIN_ID,
   metamaskDeeplink,
   isMobileDevice,
   maybeOpenInMetaMaskApp
@@ -27,14 +28,14 @@ export default function App() {
   const [walletNotice, setWalletNotice] = useState<string | null>(null)
 
   const handleConnect = async () => {
-    // 모바일 브라우저 + 지갑 없음 → MetaMask 앱 내장 브라우저로 자동 이동
+    // Mobile browser without an injected wallet → hand off to the MetaMask in-app browser
     if (maybeOpenInMetaMaskApp()) {
-      setWalletNotice('MetaMask 앱으로 이동 중… 앱이 열리지 않으면 아래 버튼을 눌러주세요.')
+      setWalletNotice('Opening the MetaMask app… If nothing happens, tap the button below.')
       return
     }
     if (!(await hasEthereum())) {
       setWalletNotice(
-        '지갑 연결에는 MetaMask가 필요해요. 데스크톱은 브라우저 확장(metamask.io/download)을 설치한 뒤 다시 시도해 주세요.'
+        'Connecting needs MetaMask. On desktop, install the browser extension from metamask.io/download and try again.'
       )
       return
     }
@@ -44,11 +45,11 @@ export default function App() {
       setAddress(addr)
       try {
         const chainId = await getChainId()
-        if (chainId !== BASE_SEPOLIA_CHAIN_ID) {
-          await switchToBaseSepolia()
+        if (chainId !== CHAIN_ID) {
+          await switchToPaymentChain()
         }
       } catch {
-        // 네트워크 전환은 체크아웃에서 다시 안내 — 연결 자체는 유지
+        // Network switching is re-prompted at checkout — the connection itself stays
       }
     } catch {
       // user cancelled — silent
@@ -61,19 +62,24 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <Header
-        address={address}
-        onConnect={handleConnect}
-        onDisconnect={handleDisconnect}
-      />
+      {TESTNET ? (
+        <div className="demo-bar" data-testid="demo-bar" data-payment-mode="testnet">
+          {TESTNET_NOTICE}
+        </div>
+      ) : null}
+      <Header address={address} onConnect={handleConnect} onDisconnect={handleDisconnect} />
       {walletNotice ? (
         <div className="container">
           <div className="notice notice--quiet" style={{ marginTop: 16 }}>
             {walletNotice}
             <div className="mt-8">
               {isMobileDevice() ? (
-                <a className="btn btn--secondary" href={metamaskDeeplink()} data-testid="open-metamask-app">
-                  MetaMask 앱에서 열기
+                <a
+                  className="btn btn--secondary"
+                  href={metamaskDeeplink()}
+                  data-testid="open-metamask-app"
+                >
+                  Open in MetaMask
                 </a>
               ) : (
                 <a
@@ -83,7 +89,7 @@ export default function App() {
                   rel="noopener noreferrer"
                   data-testid="install-metamask-extension"
                 >
-                  MetaMask 확장 설치
+                  Install MetaMask
                 </a>
               )}
             </div>

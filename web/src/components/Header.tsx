@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useCart } from '../lib/cart'
 import { shortAddress } from '../lib/wallet'
 import { useAuth } from '../lib/auth'
+import { BRAND, PAYMENT_LABEL } from '../lib/config'
 
 interface HeaderProps {
   address: string | null
@@ -16,30 +17,37 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
   const userLabel = user
     ? user.isWalletUser
       ? shortAddress(user.email.replace('@wallet.local', ''))
-      : `${user.name}님`
+      : user.name
     : null
 
   return (
     <header className="site-header">
       <div className="site-header__inner">
-        <Link to="/" className="site-header__brand">
-          사이버몰
+        <Link to="/" className="site-header__brand" aria-label={`${BRAND} home`}>
+          {BRAND}
         </Link>
         <span
           className="brand-badge"
           data-testid="payment-badge"
           data-payment-method="metamask"
-          title="MetaMask 지갑 전용 결제 쇼핑몰"
+          title={`${PAYMENT_LABEL} — USDC checkout from your MetaMask wallet`}
         >
-          MetaMask 전용
+          {PAYMENT_LABEL}
         </span>
-        <nav className="site-header__nav" aria-label="주요 메뉴">
+        <nav className="site-header__nav" aria-label="Main">
+          <Link to="/" className="site-header__link" data-testid="shop-link">
+            Shop
+          </Link>
           <Link to="/orders" className="site-header__link" data-testid="orders-link">
-            주문내역
+            Orders
           </Link>
           <Link to="/cart" className="site-header__cart" data-testid="cart-link">
-            장바구니
-            {count > 0 ? <span className="cart-badge" data-testid="cart-count">{count}</span> : null}
+            Cart
+            {count > 0 ? (
+              <span className="cart-badge" data-testid="cart-count">
+                {count}
+              </span>
+            ) : null}
           </Link>
           {user ? (
             <>
@@ -52,16 +60,20 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
                 onClick={logout}
                 data-testid="logout-button"
               >
-                로그아웃
+                Log out
               </button>
             </>
           ) : (
             <>
-              <Link to="/signup" className="site-header__link site-header__link--signup" data-testid="signup-link">
-                회원가입
+              <Link
+                to="/signup"
+                className="site-header__link site-header__link--signup"
+                data-testid="signup-link"
+              >
+                Sign up
               </Link>
               <Link to="/login" className="site-header__link" data-testid="login-link">
-                로그인
+                Log in
               </Link>
             </>
           )}
@@ -77,7 +89,7 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
             </button>
           ) : (
             <button className="wallet-btn" onClick={onConnect} data-testid="wallet-connect">
-              MetaMask 연결
+              Connect MetaMask
             </button>
           )}
         </nav>

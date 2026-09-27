@@ -1,24 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getOrder, cancelOrder, type Order } from '../lib/api'
-import { formatKRW } from '../components/ProductCard'
+import { formatUSD, formatUsdcMicro } from '../lib/format'
 import { usePageTitle } from '../lib/seo'
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: '결제 대기',
-  registered: '결제 등록',
-  paid: '결제 완료',
-  fulfilled: '배송 준비',
-  cancelled: '취소됨'
-}
-
-const STATUS_CLASS: Record<string, string> = {
-  pending: 'status-badge--pending',
-  registered: 'status-badge--registered',
-  paid: 'status-badge--paid',
-  fulfilled: 'status-badge--fulfilled',
-  cancelled: 'status-badge--cancelled'
-}
+import { CHAIN_NAME, EXPLORER_URL, SHIPPING_DETAIL } from '../lib/config'
+import { STATUS_CLASS, STATUS_LABELS } from './OrdersPage'
 
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,18 +13,23 @@ export function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelMsg, setCancelMsg] = useState<string | null>(null)
-  usePageTitle(order ? `주문 #${order.id}` : undefined)
+  usePageTitle(order ? `Order #${order.id}` : undefined)
 
   async function handleCancel() {
     if (!order) return
-    if (!window.confirm('주문을 취소할까요? 예약된 재고가 다시 풀려요.')) return
+    if (
+      !window.confirm(
+        'Cancel this order? The reserved stock goes back on the shelf and any USDC payment stays unspent.'
+      )
+    )
+      return
     setCancelling(true)
     setCancelMsg(null)
     try {
       const res = await cancelOrder(order.id)
       setOrder(res.order)
     } catch (e) {
-      setCancelMsg(e instanceof Error ? e.message : '취소에 실패했어요.')
+      setCancelMsg(e instanceof Error ? e.message : 'We could not cancel this order.')
     } finally {
       setCancelling(false)
     }
@@ -52,7 +43,7 @@ export function OrderDetailPage() {
         if (!cancelled) setOrder(res.order)
       })
       .catch(() => {
-        if (!cancelled) setError('주문을 찾지 못했어요.')
+        if (!cancelled) setError('We could not find that order.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -65,7 +56,7 @@ export function OrderDetailPage() {
   if (loading) {
     return (
       <div className="container page">
-        <div className="loading">불러오는 중…</div>
+        <div className="loading">Loading…</div>
       </div>
     )
   }
@@ -73,30 +64,36 @@ export function OrderDetailPage() {
   if (error || !order) {
     return (
       <div className="container page">
-        <div className="notice notice--error">{error ?? '주문을 찾지 못했어요.'}</div>
+        <div className="notice notice--error">{error ?? 'We could not find that order.'}</div>
+        <Link to="/orders" className="text-link">
+          Back to order history
+        </Link>
       </div>
     )
   }
 
-  const usdcDisplay = (Number(order.totalUsdcMicro) / 1_000_000).toFixed(6)
-
   return (
     <div className="container page">
-      <h1 className="page-title">주문 #{order.id}</h1>
+      <h1 className="page-title">Order #{order.id}</h1>
       <p className="page-sub">
         <Link to="/orders" className="text-link">
-          주문내역으로
+          ← Order history
         </Link>
       </p>
 
-      <div className="order-detail" data-testid="order-detail" data-order-id={order.id} data-status={order.status}>
+      <div
+        className="order-detail"
+        data-testid="order-detail"
+        data-order-id={order.id}
+        data-status={order.status}
+      >
         <div className="order-detail__section">
-          <h3>주문 상태</h3>
+          <h3>Status</h3>
           <span className={`status-badge ${STATUS_CLASS[order.status] ?? 'status-badge--pending'}`}>
             {STATUS_LABELS[order.status] ?? order.status}
           </span>
           {(order.status === 'pending' || order.status === 'registered') && (
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 14 }}>
               <button
                 type="button"
                 className="btn-cancel"
@@ -104,29 +101,39 @@ export function OrderDetailPage() {
                 disabled={cancelling}
                 data-testid="cancel-order"
               >
-                {cancelling ? '취소 중…' : '주문 취소'}
+                {cancelling ? 'Cancelling…' : 'Cancel order'}
               </button>
               {cancelMsg ? (
-                <p style={{ color: 'var(--danger, #a33)', fontSize: 13, marginTop: 8 }}>{cancelMsg}</p>
+                <p style={{ color: 'var(--danger, #a33)', fontSize: 13.5, marginTop: 8 }}>
+                  {cancelMsg}
+                </p>
               ) : null}
             </div>
+          )}
+          {order.status === 'paid' && (
+            <p className="notice notice--success mt-16">
+              Payment received. We are placing the Korean order and will ship it to your U.S.
+              address.
+            </p>
           )}
         </div>
 
         <div className="order-detail__section">
-          <h3>결제 정보</h3>
+          <h3>Payment</h3>
           <dl className="order-detail__meta">
-            <dt>결제 금액</dt>
-            <dd>
-              {formatKRW(order.totalKrw)} ({usdcDisplay} USDC)
+            <dt>Amount</dt>
+            <dd data-testid="order-total">
+              {formatUSD(order.totalKrw)} · {formatUsdcMicro(order.totalUsdcMicro)}
             </dd>
+            <dt>Network</dt>
+            <dd>{CHAIN_NAME}</dd>
             {order.txHash ? (
               <>
-                <dt>거래 해시</dt>
+                <dt>Transaction</dt>
                 <dd>
                   <a
                     className="tx-link"
-                    href={`https://sepolia.basescan.org/tx/${order.txHash}`}
+                    href={`${EXPLORER_URL}/tx/${order.txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -135,21 +142,51 @@ export function OrderDetailPage() {
                 </dd>
               </>
             ) : null}
-            <dt>주문 일시</dt>
-            <dd>{new Date(order.createdAt).toLocaleString('ko-KR')}</dd>
+            <dt>Placed</dt>
+            <dd>
+              {new Date(order.createdAt).toLocaleString('en-US', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              })}
+            </dd>
+            <dt>Wallet</dt>
+            <dd>{order.walletAddress}</dd>
           </dl>
         </div>
 
         <div className="order-detail__section">
-          <h3>상품</h3>
+          <h3>Shipping address</h3>
+          {order.shipping ? (
+            <div className="address-block" data-testid="order-shipping">
+              <div>{order.shipping.name}</div>
+              <div>{order.shipping.phone}</div>
+              <div>
+                {order.shipping.address1}
+                {order.shipping.address2 ? <>, {order.shipping.address2}</> : null}
+              </div>
+              <div>
+                {order.shipping.city}, {order.shipping.state} {order.shipping.zip}
+              </div>
+              <div>United States</div>
+            </div>
+          ) : (
+            <p className="site-footer__line">
+              No address on this order (created before addresses were collected).
+            </p>
+          )}
+          <p className="summary-note mt-8">{SHIPPING_DETAIL}</p>
+        </div>
+
+        <div className="order-detail__section">
+          <h3>Items</h3>
           {order.items && order.items.length > 0 ? (
             <table className="items-table">
               <thead>
                 <tr>
-                  <th>상품</th>
-                  <th>수량</th>
-                  <th>가격</th>
-                  <th>합계</th>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,19 +194,15 @@ export function OrderDetailPage() {
                   <tr key={item.id}>
                     <td>{item.title}</td>
                     <td>{item.qty}</td>
-                    <td>{formatKRW(item.priceKrw)}</td>
-                    <td>{formatKRW(item.priceKrw * item.qty)}</td>
+                    <td>{formatUSD(item.priceKrw)}</td>
+                    <td>{formatUSD(item.priceKrw * item.qty)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>상품 정보가 없어요.</p>
+            <p className="site-footer__line">No line items on this order.</p>
           )}
-        </div>
-
-        <div className="notice notice--quiet">
-          알리익스프레스 직배송, 평균 2~3주. 테스트넷 상점입니다 — 실결제 아님.
         </div>
       </div>
     </div>

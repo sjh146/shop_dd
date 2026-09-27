@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrders, type Order } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { formatKRW } from '../components/ProductCard'
+import { formatUSD } from '../lib/format'
 import { usePageTitle } from '../lib/seo'
+import { PAYMENT_SUMMARY } from '../lib/config'
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: '결제 대기',
-  registered: '결제 등록',
-  paid: '결제 완료',
-  fulfilled: '배송 준비',
-  cancelled: '취소됨'
+export const STATUS_LABELS: Record<string, string> = {
+  pending: 'Awaiting payment',
+  registered: 'Payment initiated',
+  paid: 'Paid',
+  fulfilled: 'Preparing shipment',
+  cancelled: 'Cancelled'
 }
 
-const STATUS_CLASS: Record<string, string> = {
+export const STATUS_CLASS: Record<string, string> = {
   pending: 'status-badge--pending',
   registered: 'status-badge--registered',
   paid: 'status-badge--paid',
@@ -22,7 +23,7 @@ const STATUS_CLASS: Record<string, string> = {
 }
 
 export function OrdersPage() {
-  usePageTitle('주문내역')
+  usePageTitle('Order history')
   const { user, ready } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +41,7 @@ export function OrdersPage() {
         if (!cancelled) setOrders(res.orders)
       })
       .catch(() => {
-        if (!cancelled) setError('주문 내역을 불러오지 못했어요.')
+        if (!cancelled) setError('We could not load your orders.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -53,8 +54,8 @@ export function OrdersPage() {
   if (!ready) {
     return (
       <div className="container page">
-        <h1 className="page-title">주문내역</h1>
-        <div className="loading">불러오는 중…</div>
+        <h1 className="page-title">Order history</h1>
+        <div className="loading">Loading…</div>
       </div>
     )
   }
@@ -62,13 +63,13 @@ export function OrdersPage() {
   if (!user) {
     return (
       <div className="container page">
-        <h1 className="page-title">주문내역</h1>
+        <h1 className="page-title">Order history</h1>
         <div className="notice">
-          주문 내역을 보려면 로그인이 필요해요.{' '}
+          Please{' '}
           <Link to="/login" className="text-link">
-            로그인
+            log in
           </Link>{' '}
-          후 다시 확인해 주세요.
+          to see your orders.
         </div>
       </div>
     )
@@ -76,18 +77,18 @@ export function OrdersPage() {
 
   return (
     <div className="container page">
-      <h1 className="page-title">주문내역</h1>
-      <p className="page-sub">결제 수단: USDC (Base Sepolia 테스트넷)</p>
+      <h1 className="page-title">Order history</h1>
+      <p className="page-sub">{PAYMENT_SUMMARY}</p>
 
       {loading ? (
-        <div className="loading">불러오는 중…</div>
+        <div className="loading">Loading…</div>
       ) : error ? (
         <div className="notice notice--error">{error}</div>
       ) : orders.length === 0 ? (
         <div className="empty">
-          주문 내역이 없어요.{' '}
+          No orders yet.{' '}
           <Link to="/" className="text-link">
-            상품 보러 가기
+            Browse essentials
           </Link>
         </div>
       ) : (
@@ -102,13 +103,17 @@ export function OrdersPage() {
               data-status={o.status}
             >
               <div className="order-row__left">
-                <span className="order-row__id">주문 #{o.id}</span>
+                <span className="order-row__id">Order #{o.id}</span>
                 <span className="order-row__meta">
-                  {new Date(o.createdAt).toLocaleDateString('ko-KR')}
+                  {new Date(o.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                 </span>
               </div>
               <div className="order-row__right">
-                <span className="order-row__total">{formatKRW(o.totalKrw)}</span>
+                <span className="order-row__total">{formatUSD(o.totalKrw)}</span>
                 <span
                   className={`status-badge ${STATUS_CLASS[o.status] ?? 'status-badge--pending'}`}
                   data-testid="status-badge"

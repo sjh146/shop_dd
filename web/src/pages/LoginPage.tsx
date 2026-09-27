@@ -4,7 +4,7 @@ import { useAuth, friendlyAuthError } from '../lib/auth'
 import { usePageTitle } from '../lib/seo'
 
 export function LoginPage() {
-  usePageTitle('로그인')
+  usePageTitle('Log in')
   const { login } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -30,8 +30,10 @@ export function LoginPage() {
     <div className="container page">
       <form className="auth-card" onSubmit={handleSubmit} data-testid="login-form">
         <div>
-          <h1 className="auth-card__title">로그인</h1>
-          <p className="auth-card__sub">이메일과 비밀번호로 로그인하세요.</p>
+          <h1 className="auth-card__title">Log in</h1>
+          <p className="auth-card__sub">
+            Use your email and password — wallet checkout works without an account too.
+          </p>
         </div>
 
         {error ? (
@@ -41,7 +43,7 @@ export function LoginPage() {
         ) : null}
 
         <label className="form-field">
-          <span className="form-field__label">이메일</span>
+          <span className="form-field__label">Email</span>
           <input
             className="input"
             type="email"
@@ -56,28 +58,33 @@ export function LoginPage() {
         </label>
 
         <label className="form-field">
-          <span className="form-field__label">비밀번호</span>
+          <span className="form-field__label">Password</span>
           <input
             className="input"
             type="password"
             name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호"
+            placeholder="Your password"
             autoComplete="current-password"
             required
             data-testid="password-input"
           />
         </label>
 
-        <button className="btn btn--primary btn--block" type="submit" disabled={busy} data-testid="login-submit">
-          {busy ? '로그인 중…' : '로그인'}
+        <button
+          className="btn btn--primary btn--block"
+          type="submit"
+          disabled={busy}
+          data-testid="login-submit"
+        >
+          {busy ? 'Logging in…' : 'Log in'}
         </button>
 
         <p className="auth-card__foot">
-          아직 계정이 없나요?{' '}
+          New here?{' '}
           <Link to="/signup" className="text-link">
-            회원가입
+            Create an account
           </Link>
         </p>
       </form>

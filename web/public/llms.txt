@@ -1,21 +1,27 @@
-# 사이버몰 (CyberMall)
+# Seoul Crate
 
-> MetaMask 전용 결제 쇼핑몰 (테스트넷). 알리익스프레스 직배송 상품을 MetaMask 지갑의 USDC(Base Sepolia)로 결제한다. 실제 돈은 오가지 않는다.
+> Everyday essentials bought in Seoul, Korea and shipped to U.S. addresses. Prices are shown in USD and checkout is paid in USDC from a MetaMask wallet. Currently running on a test network (Base Sepolia) — no real money moves.
 
-## 결제 (Payment)
-- 결제 수단: MetaMask 지갑 전용 — 브라우저 확장 / MetaMask 앱 내장 브라우저 / 딥링크 https://link.metamask.io/dapp/<host>
-- 통화: USDC (테스트 토큰) · 네트워크: Base Sepolia (chainId 84532) · 실제 결제 없음
-- 결제 컨트랙트: 0x7fD9208e601c69639F6875EC24717e8476A2cCb1
-- 결제 흐름: 지갑 연결 → 서명 로그인 → 주문 생성 → USDC 승인 → 온체인 결제 → 서버 확인
-- 원클릭 결제: /checkout 의 [data-testid="oneclick-pay"] 버튼 하나로 전체 진행
-- MetaMask 이외 지갑 미지원
+## Store
+- Market: United States (U.S. shipping addresses only)
+- Catalog: Korean retail goods (household, snacks, beauty, small electronics), prices in USD
+- Fulfillment: after payment clears we buy the items in Korea and ship them to the customer's U.S. address; delivery usually takes 7–14 business days
 
-## AI 에이전트용 (Machine-readable)
-- 모든 핵심 요소에 data-testid (data-product-id, data-stock, data-current-step 등)
-- schema.org JSON-LD: OnlineStore(paymentAccepted) · Product/ItemList
+## Payment
+- Method: MetaMask wallet only — browser extension, the MetaMask in-app browser, or the deep link https://link.metamask.io/dapp/<host>
+- Token: USDC (mock test token) · Network: Base Sepolia (chainId 84532) · No real payment
+- Payment contract: 0x7fD9208e601c69639F6875EC24717e8476A2cCb1
+- Flow: connect wallet → sign in → create order (with shipping address) → approve USDC → pay on-chain → server verification
+- One-click: the [data-testid="oneclick-pay"] button on /checkout runs the whole sequence
+- No wallets other than MetaMask are supported
+
+## Machine-readable
+- Key elements carry data-testid (data-product-id, data-stock, data-current-step, data-price-usd-cents)
+- schema.org JSON-LD: OnlineStore (paymentAccepted) · Product/ItemList with USD offers
 - API: GET /api/products · POST /api/orders · GET /api/orders · POST /api/orders/:id/verify
-- 페이지: / · /products/:id · /cart · /checkout · /orders · /orders/:id
+- Pages: / · /products/:id · /cart · /checkout · /orders · /orders/:id · /login · /signup
+- Order requests accept an optional shipping object: {name, phone, address1, address2?, city, state, zip}
 
-## 참고
-- 테스트넷 데모 — 실결제·실배송 아님
-- 결제 진행 상태: [data-testid="checkout-steps"] 의 data-current-step 속성
+## Notes
+- Testnet demo — no real payment and no real shipment
+- Checkout progress: the data-current-step attribute on [data-testid="checkout-steps"]

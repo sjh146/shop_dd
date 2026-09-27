@@ -1,17 +1,21 @@
 import { useEffect } from 'react'
+import { BRAND, CHAIN_NAME, PAYMENT_LABEL } from './config'
 
-/** 페이지별 문서 제목 — 검색엔진·AI 에이전트가 현재 화면을 식별할 수 있게 한다 */
+/**
+ * Per-page document title — lets search engines and AI agents identify the
+ * current screen without parsing the DOM.
+ */
 export function usePageTitle(title?: string): void {
   useEffect(() => {
     document.title = title
-      ? `${title} — 사이버몰`
-      : '사이버몰 — MetaMask 전용 결제 (테스트넷)'
+      ? `${title} — ${BRAND}`
+      : `${BRAND} — Korean essentials shipped to the U.S. (${PAYMENT_LABEL}, USDC on ${CHAIN_NAME})`
   }, [title])
 }
 
 /**
- * schema.org JSON-LD 구조화 데이터 — 검색엔진과 AI 에이전트가
- * 상품명/가격/재고 상태를 DOM 파싱 없이 읽을 수 있게 한다.
+ * schema.org JSON-LD structured data — lets search engines and AI agents read
+ * product name/price/stock without DOM parsing.
  */
 export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
