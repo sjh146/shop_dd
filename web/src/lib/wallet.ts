@@ -144,7 +144,16 @@ const shopPaymentAbi = [
       { name: 'amountUsdc', type: 'uint256' }
     ],
     outputs: []
-  }
+  },
+  // 커스텀 에러 — 사전 시뮬레이션에서 revert 이름을 디코딩하기 위해 필요
+  { type: 'error', name: 'OrderNotRegistered', inputs: [{ name: 'orderId', type: 'uint256' }] },
+  { type: 'error', name: 'NotOrderPayer', inputs: [{ name: 'orderId', type: 'uint256' }] },
+  {
+    type: 'error',
+    name: 'AmountMismatch',
+    inputs: [{ name: 'expected', type: 'uint256' }, { name: 'actual', type: 'uint256' }]
+  },
+  { type: 'error', name: 'OrderAlreadyPaid', inputs: [{ name: 'orderId', type: 'uint256' }] }
 ] as const
 
 let publicClient: PublicClient | null = null
@@ -308,6 +317,15 @@ export async function getUsdcBalance(
   return result as bigint
 }
 
+/** viem 컨트랙트 에러에서 revert 이름 추출 — UI 한국어 매핑이 잡을 수 있는 형태로 */
+function contractErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  for (const name of ['OrderNotRegistered', 'NotOrderPayer', 'AmountMismatch', 'OrderAlreadyPaid']) {
+    if (msg.includes(name)) return name
+  }
+  return msg
+}
+
 export async function approve(
   usdcToken: string,
   contractAddress: string,
@@ -325,6 +343,11 @@ export async function approve(
     args: [contractAddress as Address, amountMicro],
     account
   })
+  // 온체인 반영까지 대기 — revert를 조용히 성공 처리하지 않는다
+  const receipt = await getPublicClient().waitForTransactionReceipt({ hash, timeout: 120_000 })
+  if (receipt.status !== 'success') {
+    throw new Error('USDC 승인 트랜잭션이 온체인에서 실패(revert)했어요. 다시 시도해 주세요.')
+  }
   return hash
 }
 
@@ -337,6 +360,19 @@ export async function pay(
   const provider = activeProvider ?? (await resolveProvider())
   if (!provider) throw new Error('no-wallet-provider')
   const client = makeWalletClient(provider)
+  // 사전 시뮬레이션 — 미등록/중복결제/금액불일치 revert를 MetaMask 팝업·가스 낭비 없이 먼저 감지
+  try {
+    await getPublicClient().simulateContract({
+      chain: baseSepolia,
+      address: contractAddress as Address,
+      abi: shopPaymentAbi,
+      functionName: 'pay',
+      args: [BigInt(gatewayOrderId), amountMicro],
+      account
+    })
+  } catch (err) {
+    throw new Error(contractErrorMessage(err))
+  }
   const hash = await client.writeContract({
     chain: baseSepolia,
     address: contractAddress as Address,
@@ -345,6 +381,11 @@ export async function pay(
     args: [BigInt(gatewayOrderId), amountMicro],
     account
   })
+  // 온체인 반영까지 대기 — revert를 조용히 성공 처리하지 않는다
+  const receipt = await getPublicClient().waitForTransactionReceipt({ hash, timeout: 120_000 })
+  if (receipt.status !== 'success') {
+    throw new Error('결제 트랜잭션이 온체인에서 실패(revert)했어요. 주문내역에서 상태를 확인해 주세요.')
+  }
   return hash
 }
 

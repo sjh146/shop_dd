@@ -52,6 +52,24 @@ function friendlyWalletError(e: unknown): string {
   if (/insufficient funds/i.test(m)) {
     return '가스용 Sepolia ETH가 부족해요. 테스트 ETH를 받은 뒤 다시 시도해 주세요.'
   }
+  if (/insufficient stock/i.test(m)) {
+    return '상품 재고가 부족해요 — 미결제 주문이 재고를 잡고 있으면, 주문내역에서 그 주문을 취소하면 재고가 풀려요.'
+  }
+  if (/OrderNotRegistered/i.test(m)) {
+    return '이 주문은 아직 온체인 등록 전이라 결제할 수 없어요 (게이트웨이 등록 대기/실패). 잠시 후 다시 시도해 주세요.'
+  }
+  if (/OrderAlreadyPaid/i.test(m)) {
+    return '이 주문은 이미 결제된 주문이에요. 주문내역에서 상태를 확인해 주세요.'
+  }
+  if (/NotOrderPayer/i.test(m)) {
+    return '이 주문은 다른 지갑 주소로 등록돼 있어 결제할 수 없어요. 주문을 새로 만들어 주세요.'
+  }
+  if (/AmountMismatch/i.test(m)) {
+    return '결제 금액이 주문 기록과 달라요. 주문을 새로 만들어 주세요.'
+  }
+  if (/timeout|timed out/i.test(m)) {
+    return '트랜잭션 확인이 지연되고 있어요. 잠시 후 주문내역에서 상태를 확인해 주세요.'
+  }
   return m || '결제 진행 중 문제가 발생했어요. MetaMask 확인창을 눌러주세요.'
 }
 
@@ -213,8 +231,8 @@ export function CheckoutPage() {
       )
       setOrderResp(resp)
       setStep('balance')
-    } catch {
-      setError('주문을 생성하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } catch (e) {
+      setError(friendlyWalletError(e))
     } finally {
       setBusy(false)
     }
@@ -274,8 +292,8 @@ export function CheckoutPage() {
         address as `0x${string}`
       )
       setStep('pay')
-    } catch {
-      setError('USDC 승인에 실패했어요. MetaMask에서 승인 요청을 확인해 주세요.')
+    } catch (e) {
+      setError(friendlyWalletError(e))
     } finally {
       setBusy(false)
     }
@@ -294,8 +312,8 @@ export function CheckoutPage() {
       )
       setTxHash(hash)
       setStep('verify')
-    } catch {
-      setError('결제에 실패했어요. MetaMask에서 결제 요청을 확인해 주세요.')
+    } catch (e) {
+      setError(friendlyWalletError(e))
     } finally {
       setBusy(false)
     }
