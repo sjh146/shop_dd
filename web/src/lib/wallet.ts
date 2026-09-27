@@ -24,6 +24,16 @@ declare global {
 
 export const BASE_SEPOLIA_CHAIN_ID = 84532
 
+/**
+ * MetaMask 모바일 앱의 내장 브라우저로 이 페이지를 여는 공식 딥링크.
+ * 앱 하단 "탐색(Explore)" 탭 → 브라우저 아이콘 경로를 대신해 준다.
+ * (metamask-docs: "Open a dapp in the in-app browser")
+ */
+export function metamaskDeeplink(): string {
+  const host = typeof window !== 'undefined' ? window.location.host : ''
+  return `https://link.metamask.io/dapp/${host}`
+}
+
 export const baseSepolia: Chain = {
   id: 84532,
   name: 'Base Sepolia',

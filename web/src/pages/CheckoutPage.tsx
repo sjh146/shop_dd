@@ -22,7 +22,8 @@ import {
   approve,
   pay,
   faucet,
-  BASE_SEPOLIA_CHAIN_ID
+  BASE_SEPOLIA_CHAIN_ID,
+  metamaskDeeplink
 } from '../lib/wallet'
 
 type Step = 'wallet' | 'auth' | 'order' | 'balance' | 'approve' | 'pay' | 'verify'
@@ -84,7 +85,7 @@ export function CheckoutPage() {
     setBusy(true)
     try {
       if (!(await hasEthereum())) {
-        setError('MetaMask 지갑이 필요해요. 데스크톱은 확장 프로그램, 모바일은 MetaMask 앱으로 이 페이지를 열어주세요.')
+        setError('지갑을 찾지 못했어요. 모바일은 아래 "MetaMask 앱에서 열기" 버튼으로, 데스크톱은 MetaMask 확장 설치 후 다시 시도해 주세요.')
         return
       }
       const addr = await connect()
@@ -296,9 +297,12 @@ export function CheckoutPage() {
             </div>
             {!address ? (
               <div className="checkout-step__action">
-                <button className="btn btn--primary" onClick={handleConnect} disabled={busy}>
+                <button className="btn btn--secondary" onClick={handleConnect} disabled={busy}>
                   지갑 연결
                 </button>
+                <a className="btn btn--ghost" href={metamaskDeeplink()} style={{ marginLeft: 8 }}>
+                  MetaMask 앱에서 열기
+                </a>
               </div>
             ) : null}
             {wrongNetwork ? (

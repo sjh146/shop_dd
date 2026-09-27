@@ -11,7 +11,7 @@ import { OrderDetailPage } from './pages/OrderDetailPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { AuthProvider } from './lib/auth'
-import { connect, hasEthereum, getChainId, switchToBaseSepolia, BASE_SEPOLIA_CHAIN_ID } from './lib/wallet'
+import { connect, hasEthereum, getChainId, switchToBaseSepolia, BASE_SEPOLIA_CHAIN_ID, metamaskDeeplink } from './lib/wallet'
 
 export default function App() {
   const [address, setAddress] = useState<string | null>(null)
@@ -20,8 +20,8 @@ export default function App() {
   const handleConnect = async () => {
     if (!(await hasEthereum())) {
       setWalletNotice(
-        '지갑 연결하려면 MetaMask가 필요해요. 데스크톱은 확장 프로그램(metamask.io/download), ' +
-          '모바일은 MetaMask 앱으로 이 페이지를 열어주세요. 설치 후 새로고침하면 QR 연결이 뜹니다.'
+        '지갑 연결에는 MetaMask가 필요해요. 데스크톱은 브라우저 확장(metamask.io/download)을 설치하고, ' +
+          '모바일은 아래 버튼으로 MetaMask 앱 안에서 이 페이지를 열어주세요.'
       )
       return
     }
@@ -57,6 +57,11 @@ export default function App() {
         <div className="container">
           <div className="notice notice--quiet" style={{ marginTop: 16 }}>
             {walletNotice}
+            <div className="mt-8">
+              <a className="btn btn--secondary" href={metamaskDeeplink()}>
+                MetaMask 앱에서 열기
+              </a>
+            </div>
           </div>
         </div>
       ) : null}
