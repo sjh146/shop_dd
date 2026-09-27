@@ -6,11 +6,11 @@ import {
   verifyOrder,
   getNonce,
   verifySignature,
-  setToken,
   type Product,
   type CreateOrderResponse
 } from '../lib/api'
 import { useCart } from '../lib/cart'
+import { useAuth } from '../lib/auth'
 import { formatKRW } from '../components/ProductCard'
 import {
   hasEthereum,
@@ -32,6 +32,7 @@ const FAUCET_AMOUNT = 100_000_000n // 100 mUSDC
 export function CheckoutPage() {
   const navigate = useNavigate()
   const { items, clear } = useCart()
+  const { adoptAuth } = useAuth()
 
   const [products, setProducts] = useState<Map<number, Product>>(new Map())
   const [loadingProducts, setLoadingProducts] = useState(true)
@@ -144,7 +145,7 @@ export function CheckoutPage() {
       const nonceRes = await getNonce(address)
       const signature = await signMessage(nonceRes.message, address as `0x${string}`)
       const authRes = await verifySignature(address, signature, nonceRes.nonce)
-      setToken(authRes.token)
+      adoptAuth(authRes)
       setStep('order')
     } catch (e) {
       setError(

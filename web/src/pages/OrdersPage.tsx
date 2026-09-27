@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrders, type Order } from '../lib/api'
-import { getToken } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { formatKRW } from '../components/ProductCard'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -21,13 +21,14 @@ const STATUS_CLASS: Record<string, string> = {
 }
 
 export function OrdersPage() {
+  const { user, ready } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [authed] = useState(Boolean(getToken()))
 
   useEffect(() => {
-    if (!authed) {
+    if (!ready) return
+    if (!user) {
       setLoading(false)
       return
     }
@@ -45,14 +46,27 @@ export function OrdersPage() {
     return () => {
       cancelled = true
     }
-  }, [authed])
+  }, [ready, user])
 
-  if (!authed) {
+  if (!ready) {
+    return (
+      <div className="container page">
+        <h1 className="page-title">주문내역</h1>
+        <div className="loading">불러오는 중…</div>
+      </div>
+    )
+  }
+
+  if (!user) {
     return (
       <div className="container page">
         <h1 className="page-title">주문내역</h1>
         <div className="notice">
-          주문 내역을 보려면 지갑 로그인이 필요해요. 상단의 지갑 연결 버튼을 눌러 주세요.
+          주문 내역을 보려면 로그인이 필요해요.{' '}
+          <Link to="/login" className="text-link">
+            로그인
+          </Link>{' '}
+          후 다시 확인해 주세요.
         </div>
       </div>
     )

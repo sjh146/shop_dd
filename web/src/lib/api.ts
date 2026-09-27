@@ -89,18 +89,20 @@ export interface NonceResponse {
   expiresIn: number
 }
 
+export interface AuthUser {
+  id: number
+  email: string
+  name: string
+  role: string
+  isWalletUser: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface WalletAuthResponse {
   token: string
   walletAddress: string
-  user: {
-    id: number
-    email: string
-    name: string
-    role: string
-    isWalletUser: boolean
-    createdAt: string
-    updatedAt: string
-  }
+  user: AuthUser
 }
 
 export interface CreateOrderResponse {
@@ -134,6 +136,31 @@ export function verifySignature(
     method: 'POST',
     body: JSON.stringify({ walletAddress, signature, nonce })
   })
+}
+
+export function registerUser(
+  email: string,
+  password: string,
+  name: string
+): Promise<{ id: number; email: string; name: string }> {
+  return request<{ id: number; email: string; name: string }>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, name })
+  })
+}
+
+export function loginUser(
+  email: string,
+  password: string
+): Promise<{ token: string; user: AuthUser }> {
+  return request<{ token: string; user: AuthUser }>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  })
+}
+
+export function getMe(): Promise<{ user: AuthUser }> {
+  return request<{ user: AuthUser }>('/api/auth/me')
 }
 
 // ── Products ──────────────────────────────────────────────────────────────
