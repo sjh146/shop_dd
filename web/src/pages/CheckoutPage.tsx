@@ -295,7 +295,7 @@ export function CheckoutPage() {
             </div>
             {!address ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleConnect} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleConnect} disabled={busy}>
                   지갑 연결
                 </button>
               </div>
@@ -305,11 +305,11 @@ export function CheckoutPage() {
                 <div className="notice">
                   Base Sepolia 네트워크가 필요해요. 네트워크를 전환해 주세요.
                 </div>
-                <button className="btn btn--secondary" onClick={handleSwitchNetwork} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleSwitchNetwork} disabled={busy}>
                   Base Sepolia로 전환
                 </button>
                 <button
-                  className="btn btn--secondary"
+                  className="btn btn--ghost"
                   onClick={handleRecheckNetwork}
                   disabled={busy}
                   style={{ marginLeft: 8 }}
@@ -329,7 +329,7 @@ export function CheckoutPage() {
             <div className="checkout-step__desc">지갑 서명으로 로그인해 주세요.</div>
             {step === 'auth' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleAuth} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleAuth} disabled={busy}>
                   서명하고 로그인
                 </button>
               </div>
@@ -349,7 +349,7 @@ export function CheckoutPage() {
             </div>
             {step === 'order' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleCreateOrder} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleCreateOrder} disabled={busy}>
                   주문 생성
                 </button>
               </div>
@@ -369,7 +369,7 @@ export function CheckoutPage() {
             </div>
             {step === 'balance' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleCheckBalance} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleCheckBalance} disabled={busy}>
                   잔액 확인
                 </button>
               </div>
@@ -381,7 +381,7 @@ export function CheckoutPage() {
             ) : null}
             {insufficient ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleFaucet} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleFaucet} disabled={busy}>
                   테스트 USDC 받기
                 </button>
               </div>
@@ -397,7 +397,7 @@ export function CheckoutPage() {
             <div className="checkout-step__desc">결제 컨트랙트에 USDC 사용을 승인해 주세요.</div>
             {step === 'approve' ? (
               <div className="checkout-step__action">
-                <button className="btn btn--secondary" onClick={handleApprove} disabled={busy}>
+                <button className="btn btn--primary" onClick={handleApprove} disabled={busy}>
                   승인하기
                 </button>
               </div>

@@ -39,31 +39,15 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="product-card__image-fallback" style={{ display: product.imageUrl ? 'none' : 'flex' }}>
           이미지 준비 중
         </div>
-        {pct !== null ? <span className="discount-tag">-{pct}%</span> : null}
         {product.stock <= 0 ? <span className="soldout-tag">품절</span> : null}
       </div>
       <div className="product-card__body">
         <h3 className="product-card__title">{product.title}</h3>
-        <table className="price-table">
-          <tbody>
-            {orig > 0 ? (
-              <tr>
-                <td>원가</td>
-                <td className="price-original">{formatKRW(orig)}</td>
-              </tr>
-            ) : null}
-            <tr>
-              <td>판매가</td>
-              <td className="price-sale">{formatKRW(sale)}</td>
-            </tr>
-            {pct !== null ? (
-              <tr>
-                <td>할인율</td>
-                <td className="price-discount">{pct}%</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+        <div className="product-card__price">
+          {pct !== null ? <span className="price-pct">{pct}%</span> : null}
+          <span className="price-sale">{formatKRW(sale)}</span>
+          {orig > 0 ? <span className="price-original">{formatKRW(orig)}</span> : null}
+        </div>
       </div>
     </Link>
   )

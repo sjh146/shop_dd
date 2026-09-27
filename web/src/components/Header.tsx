@@ -18,7 +18,7 @@ export function Header({ address, onConnect, onDisconnect }: HeaderProps) {
           직구창고
         </Link>
         <nav className="site-header__nav">
-          <Link to="/" className="site-header__link">
+          <Link to="/" className="site-header__link site-header__link--home">
             상품
           </Link>
           <Link to="/orders" className="site-header__link">

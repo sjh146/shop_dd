@@ -70,7 +70,7 @@ export function OrdersPage() {
       ) : orders.length === 0 ? (
         <div className="empty">
           주문 내역이 없어요.{' '}
-          <Link to="/" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+          <Link to="/" className="text-link">
             상품 보러 가기
           </Link>
         </div>

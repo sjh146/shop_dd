@@ -44,7 +44,7 @@ export function CartPage() {
       ) : lines.length === 0 ? (
         <div className="empty">
           장바구니가 비어 있어요.{' '}
-          <Link to="/" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+          <Link to="/" className="text-link">
             상품 보러 가기
           </Link>
         </div>
@@ -53,28 +53,38 @@ export function CartPage() {
           <div className="cart-list">
             {lines.map((line) => (
               <div className="cart-item" key={line.productId}>
-                <div className="cart-item__title">{line.product.title}</div>
-                <div className="qty-control">
-                  <button
-                    type="button"
-                    onClick={() => setQty(line.productId, line.qty - 1)}
-                    aria-label="수량 줄이기"
-                  >
-                    −
-                  </button>
-                  <span>{line.qty}</span>
-                  <button
-                    type="button"
-                    onClick={() => setQty(line.productId, line.qty + 1)}
-                    aria-label="수량 늘리기"
-                  >
-                    +
-                  </button>
+                <div className="cart-item__thumb">
+                  {line.product.imageUrl ? (
+                    <img src={line.product.imageUrl} alt={line.product.title} loading="lazy" />
+                  ) : null}
                 </div>
-                <div className="cart-item__price">{formatKRW(line.price)}</div>
-                <div className="cart-item__line-total">{formatKRW(line.lineTotal)}</div>
+                <div className="cart-item__info">
+                  <div className="cart-item__title">{line.product.title}</div>
+                  <div className="cart-item__unit">단가 {formatKRW(line.price)}</div>
+                </div>
+                <div className="cart-item__qty">
+                  <div className="qty-control">
+                    <button
+                      type="button"
+                      onClick={() => setQty(line.productId, line.qty - 1)}
+                      aria-label="수량 줄이기"
+                    >
+                      −
+                    </button>
+                    <span>{line.qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQty(line.productId, line.qty + 1)}
+                      aria-label="수량 늘리기"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="cart-item__total">{formatKRW(line.lineTotal)}</div>
                 <button
-                  className="btn btn--ghost"
+                  type="button"
+                  className="cart-item__remove"
                   onClick={() => removeItem(line.productId)}
                 >
                   삭제

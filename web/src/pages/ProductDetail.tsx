@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getProduct, type Product } from '../lib/api'
 import { useCart } from '../lib/cart'
 import { formatKRW, discountPct } from '../components/ProductCard'
-import { isSafeExternalUrl } from '../lib/safeUrl'
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>()
@@ -85,7 +84,6 @@ export function ProductDetail() {
           >
             이미지 준비 중
           </div>
-          {pct !== null ? <span className="discount-tag">-{pct}%</span> : null}
         </div>
 
         <div className="detail__info">
@@ -94,26 +92,11 @@ export function ProductDetail() {
             <p className="detail__desc">{product.description}</p>
           ) : null}
 
-          <table className="price-table">
-            <tbody>
-              {orig > 0 ? (
-                <tr>
-                  <td>원가</td>
-                  <td className="price-original">{formatKRW(orig)}</td>
-                </tr>
-              ) : null}
-              <tr>
-                <td>판매가</td>
-                <td className="price-sale">{formatKRW(sale)}</td>
-              </tr>
-              {pct !== null ? (
-                <tr>
-                  <td>할인율</td>
-                  <td className="price-discount">{pct}%</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+          <div className="price-block">
+            {pct !== null ? <span className="price-pct">{pct}%</span> : null}
+            <span className="price-sale">{formatKRW(sale)}</span>
+            {orig > 0 ? <span className="price-original">{formatKRW(orig)}</span> : null}
+          </div>
 
           <p className="detail__stock">
             재고 {product.stock > 0 ? `${product.stock}개` : '품절'}
@@ -150,21 +133,7 @@ export function ProductDetail() {
             </button>
           </div>
 
-          {isSafeExternalUrl(product.sourceUrl) ? (
-            <a
-              className="btn btn--ghost btn--block"
-              href={product.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              알리익스프레스에서 보기
-            </a>
-          ) : null}
-
-          <button
-            className="btn btn--secondary btn--block"
-            onClick={() => navigate('/cart')}
-          >
+          <button type="button" className="text-link" onClick={() => navigate('/cart')}>
             장바구니로 이동
           </button>
         </div>

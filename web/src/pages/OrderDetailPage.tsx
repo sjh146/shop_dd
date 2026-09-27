@@ -82,7 +82,7 @@ export function OrderDetailPage() {
     <div className="container page">
       <h1 className="page-title">주문 #{order.id}</h1>
       <p className="page-sub">
-        <Link to="/orders" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+        <Link to="/orders" className="text-link">
           주문내역으로
         </Link>
       </p>
